@@ -1,0 +1,19 @@
+version: '3.7'
+
+services:
+  faust-stream:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: faust-stream
+    depends_on:
+      - kafka
+    environment:
+      - FAUST_BROKER=kafka://kafka:9092
+    networks:
+      - kafka-postgis-net
+
+networks:
+  kafka-postgis-net:
+    external: true
+

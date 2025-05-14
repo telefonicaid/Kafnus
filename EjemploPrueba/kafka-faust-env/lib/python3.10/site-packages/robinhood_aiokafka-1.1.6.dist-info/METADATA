@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: robinhood-aiokafka
+Version: 1.1.6
+Summary: Kafka integration with asyncio.
+Home-page: http://aiokafka.readthedocs.org
+Author: Andrew Svetlov
+Author-email: andrew.svetlov@gmail.com
+License: Apache 2
+Download-URL: https://pypi.python.org/pypi/aiokafka
+Platform: POSIX
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Framework :: AsyncIO
+Classifier: Development Status :: 4 - Beta
+Requires-Dist: kafka-python (<1.5,>=1.4.6)
+Provides-Extra: snappy
+Requires-Dist: python-snappy (>=0.5) ; extra == 'snappy'
+
+This is a temporary fork of aiokafka maintained by Robinhood
+
+
