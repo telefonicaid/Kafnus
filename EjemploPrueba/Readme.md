@@ -1,105 +1,105 @@
 # 🔄 NGSI Kafka Stream Processor
 
-Este proyecto implementa una arquitectura ligera de procesamiento de notificaciones NGSIv2 usando Kafka, Faust y Kafka Connect, con persistencia en PostgreSQL/PostGIS.
+This project implements a lightweight NGSIv2 notification processing architecture using Kafka, Faust, and Kafka Connect, with persistence in PostgreSQL/PostGIS.
 
 ---
 
-## 📁 Archivos y estructura
+## 📁 Files and Structure
 
 ```
 .
-├── accesscount_notification.json       # Notificación tipo NGSIv2 (accesos)
-├── parking_notification.json           # Notificación tipo NGSIv2 (parking)
-├── pg-sink-historic.json               # Conector JDBC para almacenar históricos
-├── pg-sink-lastdata.json               # Conector JDBC para último valor
-├── producer.py                         # Script para enviar notificaciones NGSIv2 a Kafka
-├── stream_processor.py                 # Microservicio Faust que procesa notificaciones crudas
-├── requirements.txt                    # Dependencias Python (incluye Faust y Kafka)
-├── Dockerfile                          # Imagen para ejecutar Faust
-├── docker-compose.yml                  # Servicios de Kafka, Connect, etc.
-├── docker-compose.override.yml         # Ajustes adicionales para entornos locales
-├── kafka-faust-env/                    # Entorno virtual Python para ejecutar Faust
-└── plugins/                            # Conector Kafka personalizado (JDBC, MongoDB, etc.)
+├── accesscount_notification.json # NGSIv2 notification (accesses)
+├── parking_notification.json # NGSIv2 notification (parking)
+├── pg-sink-historic.json # JDBC connector for storing historical data
+├── pg-sink-lastdata.json # JDBC connector for the last value
+├── producer.py # Script for sending NGSIv2 notifications to Kafka
+├── stream_processor.py # Faust microservice that processes raw notifications
+├── requirements.txt # Python dependencies (includes Faust and Kafka)
+├── Dockerfile # Image to run Faust
+├── docker-compose.yml # Kafka Services, Connect, etc.
+├── docker-compose.override.yml # Additional settings for local environments
+├── kafka-faust-env/ # Python virtual environment for running Faust
+└── plugins/ # Custom Kafka connector (JDBC, MongoDB, etc.)
 ```
 
 ---
 
-## 🧠 Conceptos clave
+## 🧠 Key Concepts
 
-### 🔹 Notificaciones NGSIv2 y `producer.py`
+### 🔹 NGSIv2 Notifications and `producer.py`
 
-- Los ficheros `.json` como `accesscount_notification.json` y `parking_notification.json` contienen ejemplos de notificaciones estilo NGSIv2.
-- Estas notificaciones se envían al tópico Kafka `raw_notifications` mediante el script `producer.py`.
-- El script requiere tener instalada la librería `kafka-python`, que puedes usar dentro del entorno virtual `kafka-faust-env`.
+- `.json` files such as `accesscount_notification.json` and `parking_notification.json` contain examples of NGSIv2-style notifications.
+- These notifications are sent to the Kafka `raw_notifications` topic using the `producer.py` script.
+- The script requires the `kafka-python` library installed, which you can use within the `kafka-faust-env` virtual environment.
 
 ---
 
-### 🔹 Arquitectura del sistema
+### 🔹 System Architecture
 
-- **Kafka + Kafka Connect** se encargan de la infraestructura de streaming y la integración con sistemas externos.
-- **Faust (`stream_processor.py`)** es un microservicio tipo Kafka Stream que sustituye la lógica de Cygnus:
-  - Procesa las notificaciones NGSIv2 del tópico `raw_notifications`.
-  - Añade automáticamente el campo `recvtime`.
-  - Transforma geometrías `geo:*` (como `geo:point`, `geo:polygon`) en estructuras serializables compatibles con PostGIS (WKB).
-  - Construye mensajes con esquema Kafka Connect para facilitar la integración JDBC.
-- **PostGIS** se levanta como servicio aparte y sirve como destino de los datos persistidos.
+- **Kafka + Kafka Connect** handle the streaming infrastructure and integration with external systems.
+- **Faust (`stream_processor.py`)** is a Kafka Stream-like microservice that replaces the Cygnus logic:
+- Processes NGSIv2 notifications from the `raw_notifications` topic.
+- Automatically adds the `recvtime` field.
+- Transforms `geo:*` geometries (such as `geo:point`, `geo:polygon`) into serializable structures compatible with PostGIS (WKB).
+- Constructs messages with the Kafka Connect schema to facilitate JDBC integration.
+- **PostGIS** is set up as a separate service and serves as the destination for persisted data.
 
 ---
 
 ### 🔹 Plugins
 
-En el directorio `plugins/` está incluido el `.jar` del conector personalizado JDBC y MongoDB necesario para Kafka Connect. Estos se montan en el contenedor mediante un volumen.
+The `plugins/` directory includes the `.jar` for the custom JDBC and MongoDB connector required for Kafka Connect. These are mounted in the container using a volume.
 
-**Importante:** si cambias la estructura del proyecto, asegúrate de actualizar esta línea en el `docker-compose.yml`:
+**Important:** If you change the project structure, be sure to update this line in `docker-compose.yml`:
 
 ```
 volumes:
-  - ./plugins:/etc/kafka-connect/plugins
+- ./plugins:/etc/kafka-connect/plugins
 ```
 
 ---
 
-## 🧪 Cómo ejecutarlo
+## 🧪 How to run it
 
-1. **Levanta PostGIS por separado**  
-   Puedes usar un contenedor o tu instalación local.
+1. **Start PostGIS separately**
+You can use a container or your local installation.
 
-2. **Levanta Kafka y Kafka Connect**  
-   Con el siguiente comando desde la raíz del proyecto:
+2. **Start Kafka and Kafka Connect**
+With the following command from the project root:
 
-   ```bash
-   docker-compose up -d
-   ```
+```bash
+docker-compose up -d
+```
 
-3. **Levanta el microservicio Faust**  
-   Puedes hacerlo desde el entorno virtual (recuerda tener las dependencias instaladas):
+3. **Start the Faust microservice**
+You can do this from the virtual environment (remember to have the dependencies installed):
 
-   ```bash
-   source kafka-faust-env/bin/activate
-   faust -A stream_processor worker -l info
-   ```
+```bash
+source kafka-faust-env/bin/activate
+faust -A stream_processor worker -l info
+```
 
-4. **Registra los conectores en Kafka Connect**  
-   Por ahora solo se ha probado el conector de históricos:
+4. **Register the connectors in Kafka Connect**
+For now, only the history connector has been tested:
 
-   ```bash
-   curl -X POST http://localhost:8083/connectors \
-        -H "Content-Type: application/json" \
-        --data @pg-sink-historic.json
-   ```
+```bash
+curl -X POST http://localhost:8083/connectors \
+-H "Content-Type: application/json" \
+--data @pg-sink-historic.json
+```
 
-5. **Envía notificaciones NGSIv2** al tópico crudo:
+5. **Send NGSIv2 notifications** to the raw topic:
 
-   ```bash
-   python producer.py accesscount_notification.json
-   ```
+```bash
+python producer.py accesscount_notification.json
+```
 
 ---
 
-## 🛠️ Mejoras pendientes
+## 🛠️ Pending Improvements
 
-- ✅ Procesar `application/json` como `attrValue` (no solo string).
-- ✅ Soporte para geometrías más complejas como `geo:json`.
-- ⚠️ **Error conocido:** Si Faust crea un tópico nuevo y aún no hay particiones disponibles, es posible que no se conecte correctamente. En ese caso, basta con cerrar y volver a lanzar el servicio Faust.
-- 🕒 Mejorar el tratamiento y normalización de fechas (e.g. `timeinstant`, zonas horarias).
-- ➕ Incluir `fiware-servicepath` en el payload procesado (actualmente solo se usa para el nombre del tópico, pero no se guarda en el mensaje resultante).
+- ✅ Process `application/json` as `attrValue` (not just string).
+- ✅ Support for more complex geometries such as `geo:json`.
+- ⚠️ **Known bug:** If Faust creates a new topic and no partitions are yet available, it may not connect correctly. In this case, simply shut down and restart the Faust service.
+- 🕒 Improve date handling and normalization (e.g., `timeinstant`, timezones).
+- ➕ Include `fiware-servicepath` in the processed payload (currently only used for the topic name, but not saved in the resulting message).

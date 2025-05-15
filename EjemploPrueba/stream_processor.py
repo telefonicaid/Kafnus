@@ -40,7 +40,7 @@ def to_wkb_struct_from_wkt(wkt_str, field_name, srid=4326):
             }
         }
     except Exception as e:
-        print(f"❌ Error generando WKB desde WKT: {e}")
+        print(f"❌ Error generating WKB from WKT: {e}")
         return None
 
 
@@ -59,97 +59,8 @@ def to_wkt_geometry(attr_type, attr_value):
             return f"POLYGON (({coords_str}))"
         # Añadir más tipos geométricos según sea necesario (geo:line, geo:box, etc.)
     except Exception as e:
-        print(f"❌ Error generando WKT ({attr_type}): {e}")
+        print(f"❌ Error generating WKT ({attr_type}): {e}")
     return None
-"""
-def to_wkt_geometry(attr_type, attr_value):
-    try:
-        if attr_type == "geo:point":
-            if isinstance(attr_value, str):
-                lat, lon = map(float, attr_value.split(','))
-                return f"POINT({lon} {lat})"
-        elif attr_type == "geo:json":
-            if isinstance(attr_value, str):
-                attr_value = json.loads(attr_value)
-            if isinstance(attr_value, dict) and attr_value.get("type") == "Point":
-                lon, lat = attr_value["coordinates"]
-                return f"POINT({lon} {lat})"
-        elif attr_type == "geo:line":
-            coords = ", ".join(f"{x.split(',')[1]} {x.split(',')[0]}" for x in attr_value)
-            return f"LINESTRING({coords})"
-        elif attr_type == "geo:box":
-            pt1, pt2 = attr_value
-            lat1, lon1 = map(float, pt1.split(','))
-            lat2, lon2 = map(float, pt2.split(','))
-            return f"POLYGON(({lon1} {lat1}, {lon2} {lat1}, {lon2} {lat2}, {lon1} {lat2}, {lon1} {lat1}))"
-        elif attr_type == "geo:polygon":
-            coords = ", ".join(f"{x.split(',')[1]} {x.split(',')[0]}" for x in attr_value)
-            return f"POLYGON(({coords}))"
-    except Exception as e:
-        print(f"❌ Error convirtiendo geometría ({attr_type}): {e}")
-    return None
-
-def to_postgis_expression(attr_type, attr_value):
-    try:
-        if attr_type == "geo:point":
-            if isinstance(attr_value, str):
-                lat, lon = map(float, attr_value.split(','))
-                geojson = {
-                    "type": "Point",
-                    "coordinates": [lon, lat]
-                }
-                return f"ST_GeomFromGeoJSON('{json.dumps(geojson)}')"
-
-        elif attr_type == "geo:json":
-            if isinstance(attr_value, str):
-                attr_value = json.loads(attr_value)
-            if isinstance(attr_value, dict):
-                return f"ST_GeomFromGeoJSON('{json.dumps(attr_value)}')"
-
-        elif attr_type == "geo:line":
-            coords = []
-            for coord in attr_value:
-                lat, lon = map(float, coord.split(','))
-                coords.append([lon, lat])
-            geojson = {
-                "type": "LineString",
-                "coordinates": coords
-            }
-            return f"ST_GeomFromGeoJSON('{json.dumps(geojson)}')"
-
-        elif attr_type == "geo:box":
-            pt1, pt2 = attr_value
-            lat1, lon1 = map(float, pt1.split(','))
-            lat2, lon2 = map(float, pt2.split(','))
-            coords = [
-                [lon1, lat1],
-                [lon2, lat1],
-                [lon2, lat2],
-                [lon1, lat2],
-                [lon1, lat1]
-            ]
-            geojson = {
-                "type": "Polygon",
-                "coordinates": [coords]
-            }
-            return f"ST_GeomFromGeoJSON('{json.dumps(geojson)}')"
-
-        elif attr_type == "geo:polygon":
-            coords = []
-            for coord in attr_value:
-                lat, lon = map(float, coord.split(','))
-                coords.append([lon, lat])
-            geojson = {
-                "type": "Polygon",
-                "coordinates": [coords]
-            }
-            return f"ST_GeomFromGeoJSON('{json.dumps(geojson)}')"
-
-    except Exception as e:
-        print(f"❌ Error generando expresión ST_GeomFromGeoJSON ({attr_type}): {e}")
-
-    return None
-"""
 
 def format_timestamp_with_utc(dt=None):
     if dt is None:
@@ -174,7 +85,7 @@ def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
             payload[k] = v
             continue
 
-        # Tipado tradicional si no es override
+        # Traditional typing if not override
         if isinstance(v, bool):
             field_type = "boolean"
         elif isinstance(v, int):
@@ -187,7 +98,7 @@ def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
                 dt = dt.astimezone(pytz.timezone('Europe/Madrid'))
                 v = format_timestamp_with_utc(dt)
             except Exception as e:
-                print(f"⚠️ Error formateando timeinstant: {e}")
+                print(f"⚠️ Error formatting timeinstant: {e}")
             field_type = "string"
         else:
             field_type = "string"
@@ -199,7 +110,7 @@ def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
         })
         payload[k] = v
 
-    # Añadir recvtime
+    # Add recvtime
     recvtime = format_timestamp_with_utc()
     schema_fields.append({
         "field": "recvtime",
@@ -263,7 +174,7 @@ async def process(stream):
 
             await output_topic.send(value=json.dumps(kafka_message).encode("utf-8"))
 
-            print(f"✅ Procesado y enviado a tópico '{topic_name}': {entity['entityid']}")
+            print(f"✅ Processed and sent to topic '{topic_name}': {entity['entityid']}")
 
         except Exception as e:
-            print(f"❌ Error procesando mensaje: {e}")
+            print(f"❌ Error processing message: {e}")
