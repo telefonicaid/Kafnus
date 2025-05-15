@@ -1,5 +1,6 @@
 import faust
-from datetime import datetime
+from faust import Topic
+from datetime import datetime, timezone
 import json
 import re
 import pytz
@@ -7,16 +8,20 @@ from shapely import wkt
 from shapely.geometry import shape
 import binascii
 import base64
+import asyncio
+
 
 app = faust.App(
     'ngsi-processor',
     broker='kafka://kafka:9092',
     value_serializer='raw',
-    topic_allow_declare=True,
-    topic_disable_leader=True
+    topic_allow_declare=True
 )
 
+
+# Topic definition
 input_topic = app.topic('raw_notifications')
+
 
 def to_wkb_struct_from_wkt(wkt_str, field_name, srid=4326):
     try:
@@ -64,8 +69,9 @@ def to_wkt_geometry(attr_type, attr_value):
 
 def format_timestamp_with_utc(dt=None):
     if dt is None:
-        dt = datetime.utcnow()
-    return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        return datetime.now(timezone.utc).isoformat(timespec='milliseconds')
+    else:
+        return dt.astimezone(timezone.utc).isoformat(timespec='milliseconds')
 
 
 def sanitize_topic(name):
@@ -129,7 +135,6 @@ def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
     }
 
 
-
 @app.agent(input_topic)
 async def process(stream):
     async for raw_value in stream:
@@ -147,7 +152,8 @@ async def process(stream):
 
             entity = {
                 "entityid": body.get("entityId"),
-                "entitytype": body.get("entityType")
+                "entitytype": body.get("entityType"),
+                "fiwareservicepath": "/"+servicepath
             }
 
             attributes = {}

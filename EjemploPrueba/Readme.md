@@ -59,19 +59,27 @@ volumes:
 
 ---
 
-## 🧪 How to run it
+## 🧪 How to Run it
 
 1. **Set up PostGIS separately**
-You can use a container or your local installation.
+You can use a container or a local installation.
 
-2. **Start Kafka and Kafka Connect**
-With the following command from the project root:
+2. **Start services with docker**
+The Docker file is already configured, so you don’t need to follow the detailed setup process below. If everything works correctly, simply run the following command from the project root:
 
 ```bash
 docker compose -f docker-compose.yml up
 ```
 
-3. **Start the Faust microservice**
+If you encounter any issues, you can try the following:
+
+- **Start Kafka and Kafka Connect manually**
+
+```bash
+docker compose -f docker-compose.yml up
+```
+
+- **Start the Faust microservice**
 In case of code changes, it will also need to be built:
 
 ```bash
@@ -79,7 +87,9 @@ docker compose build faust-stream
 docker compose up faust-stream
 ```
 
-4. **Register the connectors in Kafka Connect**
+In case there is no `raw_notifications` topic created, it could fail and it may need to re-launch `faust-stream`.
+
+- **Register the connectors in Kafka Connect**
 For now, only the history connector has been tested:
 
 ```bash
@@ -88,7 +98,7 @@ curl -X POST http://localhost:8083/connectors \
 --data @pg-sink-historic.json
 ```
 
-5. **Send NGSIv2 notifications** to the raw topic:
+- **Send NGSIv2 notifications** to the raw topic:
 
 ```bash
 python producer.py accesscount_notification.json

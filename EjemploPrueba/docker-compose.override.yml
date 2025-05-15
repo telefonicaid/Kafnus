@@ -1,13 +1,28 @@
-version: '3.7'
-
 services:
+  create-topics:
+    image: confluentinc/cp-kafka:7.9.0
+    container_name: create-topics
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic raw_notifications --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_notifications created or already created.'
+      "
+    networks:
+      - kafka-postgis-net
+      
   faust-stream:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: faust-stream
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+      create-topics:
+        condition: service_completed_successfully
     environment:
       - FAUST_BROKER=kafka://kafka:9092
     networks:
