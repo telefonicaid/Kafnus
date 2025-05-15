@@ -1,0 +1,40 @@
+{
+    "headers": {
+      "fiware-service": "routes",
+      "fiware-servicepath": "/routes"
+    },
+    "body": {
+      "entityId": "STOP-001",
+      "entityType": "Stop",
+      "attributes": [
+        { "attrName": "timeinstant", "attrValue": "2025-05-15T17:30:00.00Z" },
+        { "attrName": "enabled", "attrValue": true },
+        { "attrName": "status", "attrValue": "publidada" },
+        { 
+          "attrName": "linearrivaltime", 
+          "attrType": "json", 
+          "attrValue": {
+            "1:22023": [
+              {
+                "tripId": "1:000003900002202300001011",
+                "absoluteArrivalTime": "2024-03-21T11:08:00Z",
+                "relativeArrivalTime": 1911,
+                "destination": "Cabo De Palos",
+                "direction": "direct"
+              },
+              {
+                "tripId": "1:000003900002202300001013",
+                "absoluteArrivalTime": "2024-03-21T11:53:00Z",
+                "relativeArrivalTime": 4611,
+                "destination": "Cabo De Palos",
+                "direction": "direct"
+              }
+            ]
+          }
+        },
+        { "attrName": "entityid", "attrValue": "STOP-001" },
+        { "attrName": "entitytype", "attrValue": "Stop" }
+      ]
+    }
+  }
+  

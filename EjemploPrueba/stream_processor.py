@@ -144,7 +144,7 @@ async def process(stream):
             body = event.get("body", {})
 
             service = headers.get("fiware-service", "default").lower()
-            servicepath = headers.get("fiware-servicepath", "/").strip('/')
+            servicepath = headers.get("fiware-servicepath")
             entity_type = body.get("entityType", "unknown").lower()
 
             topic_name = sanitize_topic(f"{servicepath}_{entity_type}")
@@ -153,7 +153,7 @@ async def process(stream):
             entity = {
                 "entityid": body.get("entityId"),
                 "entitytype": body.get("entityType"),
-                "fiwareservicepath": "/"+servicepath
+                "fiwareservicepath": servicepath
             }
 
             attributes = {}
@@ -172,8 +172,16 @@ async def process(stream):
                             attributes[name] = wkb_struct["payload"]
                             schema_overrides[name] = wkb_struct["schema"]
                             continue
+                elif attr_type=="json":
+                    try:
+                        value = json.dumps(value, ensure_ascii=False)
+                    except Exception as e:
+                        print(f"⚠️ Error serializing field {name} as JSON string: {e}")
+                        value = str(value)
 
                 attributes[name] = value
+            
+            print("Valor para linearrivaltime antes de esquema:", attributes.get("linearrivaltime"))
 
             entity.update(attributes)
             kafka_message = to_kafka_connect_schema(entity, schema_overrides)
