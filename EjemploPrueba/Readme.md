@@ -61,22 +61,22 @@ volumes:
 
 ## 🧪 How to run it
 
-1. **Start PostGIS separately**
+1. **Set up PostGIS separately**
 You can use a container or your local installation.
 
 2. **Start Kafka and Kafka Connect**
 With the following command from the project root:
 
 ```bash
-docker-compose up -d
+docker compose -f docker-compose.yml up
 ```
 
 3. **Start the Faust microservice**
-You can do this from the virtual environment (remember to have the dependencies installed):
+In case of code changes, it will also need to be built:
 
 ```bash
-source kafka-faust-env/bin/activate
-faust -A stream_processor worker -l info
+docker compose build faust-stream
+docker compose up faust-stream
 ```
 
 4. **Register the connectors in Kafka Connect**
@@ -92,6 +92,12 @@ curl -X POST http://localhost:8083/connectors \
 
 ```bash
 python producer.py accesscount_notification.json
+```
+
+If a topic needs to be checked because changes in message processing cause errors, you can do so with this command:
+
+```bash
+docker exec -it kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic TOPIC_NAME --from-beginning --max-messages 10
 ```
 
 ---
