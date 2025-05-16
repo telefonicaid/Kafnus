@@ -5,7 +5,7 @@ import json
 import re
 import pytz
 from shapely import wkt
-from shapely.geometry import shape
+from shapely.geometry import shape # https://shapely.readthedocs.io/en/stable/manual.html#shapely.geometry.shape
 import binascii
 import base64
 import asyncio
@@ -18,12 +18,15 @@ app = faust.App(
     topic_allow_declare=True
 )
 
-
-# Topic definition
+# Input Kafka topic to consume raw NGSI notifications
 input_topic = app.topic('raw_notifications')
 
 
 def to_wkb_struct_from_wkt(wkt_str, field_name, srid=4326):
+    """
+    Converts a WKT geometry string to a Debezium-compatible WKB struct with schema and base64-encoded payload.
+    Used for sending geo attributes in Kafka Connect format.
+    """
     try:
         geom = wkt.loads(wkt_str)
         wkb = geom.wkb
@@ -50,11 +53,15 @@ def to_wkb_struct_from_wkt(wkt_str, field_name, srid=4326):
 
 
 def to_wkt_geometry(attr_type, attr_value):
+    """
+    Converts NGSI geo attributes (geo:point, geo:polygon, geo:json) to WKT string.
+    Supports extension for additional geo types if needed.
+    """
     try:
         if attr_type == "geo:point":
             if isinstance(attr_value, str):
                 lat, lon = map(float, attr_value.split(','))
-                return f"POINT ({lon} {lat})"  # WKT: POINT (X Y)
+                return f"POINT ({lon} {lat})"
         elif attr_type == "geo:polygon":
             coords = []
             for coord_str in attr_value:
@@ -65,12 +72,16 @@ def to_wkt_geometry(attr_type, attr_value):
         elif attr_type == "geo:json":
             geom = shape(attr_value)
             return geom.wkt
-        # Añadir más tipos geométricos según sea necesario (geo:line, geo:box, etc.)
     except Exception as e:
         print(f"❌ Error generating WKT ({attr_type}): {e}")
     return None
 
+
 def format_timestamp_with_utc(dt=None):
+    """
+    Formats a datetime object to ISO 8601 string with UTC timezone and milliseconds.
+    If no datetime is provided, uses current UTC time.
+    """
     if dt is None:
         return datetime.now(timezone.utc).isoformat(timespec='milliseconds')
     else:
@@ -78,12 +89,17 @@ def format_timestamp_with_utc(dt=None):
 
 
 def sanitize_topic(name):
+    """
+    Sanitizes a string to be a valid Kafka topic name by replacing disallowed characters with underscores.
+    """
     return re.sub(r'[^a-zA-Z0-9_]', '_', name.strip('/').lower())
+
 
 def infer_field_type(name, value, attr_type=None):
     """
-    Infer Kafka Connect field type based on NGSI attribute type or Python type,
-    and return the possibly transformed value.
+    Infers Kafka Connect field type from NGSI attrType or Python native type.
+    Also transforms the value if needed (e.g. formatting dates, serializing JSON).
+    Returns a tuple (field_type, processed_value).
     """
     if attr_type:
         if attr_type.startswith("geo:"):
@@ -129,9 +145,11 @@ def infer_field_type(name, value, attr_type=None):
         return "string", value
 
 
-
-
 def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
+    """
+    Builds a Kafka Connect compatible schema and payload dict from the entity dict.
+    Allows overriding field schemas (used mainly for geo attributes).
+    """
     schema_fields = []
     payload = {}
 
@@ -153,7 +171,7 @@ def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
         })
         payload[k] = v
 
-    # Add recvtime
+    # Add processing timestamp field
     recvtime = format_timestamp_with_utc()
     schema_fields.append({
         "field": "recvtime",
@@ -172,8 +190,11 @@ def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
     }
 
 
-
 def build_kafka_key(entity: dict, include_timeinstant=False):
+    """
+    Builds the Kafka message key with schema, including entityid and optionally timeinstant.
+    This key is used for Kafka Connect upsert mode or primary key definition.
+    """
     fields = [{"field": "entityid", "type": "string", "optional": False}]
     payload = {"entityid": entity.get("entityid")}
 
@@ -193,6 +214,11 @@ def build_kafka_key(entity: dict, include_timeinstant=False):
 
 @app.agent(input_topic)
 async def process(stream):
+    """
+    Faust agent that consumes raw NGSI notifications, processes and transforms them
+    into Kafka Connect schema format, and sends to appropriate output topics.
+    Supports handling geo attributes and dynamic topic naming based on message headers.
+    """
     async for raw_value in stream:
         try:
             event = json.loads(raw_value)
@@ -230,7 +256,7 @@ async def process(stream):
                             attributes[name] = wkb_struct["payload"]
                             schema_overrides[name] = wkb_struct["schema"]
                             continue
-                elif attr_type=="json":
+                elif attr_type == "json":
                     try:
                         value = json.dumps(value, ensure_ascii=False)
                     except Exception as e:
