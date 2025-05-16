@@ -62,6 +62,9 @@ def to_wkt_geometry(attr_type, attr_value):
                 coords.append(f"{lon} {lat}")
             coords_str = ", ".join(coords)
             return f"POLYGON (({coords_str}))"
+        elif attr_type == "geo:json":
+            geom = shape(attr_value)
+            return geom.wkt
         # Añadir más tipos geométricos según sea necesario (geo:line, geo:box, etc.)
     except Exception as e:
         print(f"❌ Error generating WKT ({attr_type}): {e}")
@@ -77,6 +80,56 @@ def format_timestamp_with_utc(dt=None):
 def sanitize_topic(name):
     return re.sub(r'[^a-zA-Z0-9_]', '_', name.strip('/').lower())
 
+def infer_field_type(name, value, attr_type=None):
+    """
+    Infer Kafka Connect field type based on NGSI attribute type or Python type,
+    and return the possibly transformed value.
+    """
+    if attr_type:
+        if attr_type.startswith("geo:"):
+            return "geometry", value  # handled externally
+        elif attr_type == "DateTime":
+            try:
+                dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                value = format_timestamp_with_utc(dt)
+            except Exception as e:
+                print(f"⚠️ Error formatting DateTime for '{name}': {e}")
+            return "string", value
+        elif attr_type == "Number":
+            return "float", value
+        elif attr_type == "Integer":
+            return "int32", value
+        elif attr_type == "Boolean":
+            return "boolean", value
+        elif attr_type == "json":
+            try:
+                return "string", json.dumps(value, ensure_ascii=False)
+            except Exception as e:
+                print(f"⚠️ Error serializing {name} as JSON: {e}")
+                return "string", str(value)
+        elif attr_type == "Text":
+            return "string", value
+
+    # Fallback to Python type inference
+    if isinstance(value, bool):
+        return "boolean", value
+    elif isinstance(value, int):
+        return "int32", value
+    elif isinstance(value, float):
+        return "float", value
+    elif name.lower() == "timeinstant":
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            dt = dt.astimezone(pytz.timezone('Europe/Madrid'))
+            value = format_timestamp_with_utc(dt)
+        except Exception as e:
+            print(f"⚠️ Error formatting timeinstant: {e}")
+        return "string", value
+    else:
+        return "string", value
+
+
+
 
 def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
     schema_fields = []
@@ -90,24 +143,8 @@ def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
             schema_fields.append(schema_overrides[k])
             payload[k] = v
             continue
-
-        # Traditional typing if not override
-        if isinstance(v, bool):
-            field_type = "boolean"
-        elif isinstance(v, int):
-            field_type = "int32"
-        elif isinstance(v, float):
-            field_type = "float"
-        elif k == "timeinstant":
-            try:
-                dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
-                dt = dt.astimezone(pytz.timezone('Europe/Madrid'))
-                v = format_timestamp_with_utc(dt)
-            except Exception as e:
-                print(f"⚠️ Error formatting timeinstant: {e}")
-            field_type = "string"
-        else:
-            field_type = "string"
+        
+        field_type, v = infer_field_type(k, v)
 
         schema_fields.append({
             "field": k,
@@ -135,6 +172,25 @@ def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
     }
 
 
+
+def build_kafka_key(entity: dict, include_timeinstant=False):
+    fields = [{"field": "entityid", "type": "string", "optional": False}]
+    payload = {"entityid": entity.get("entityid")}
+
+    if include_timeinstant:
+        fields.append({"field": "timeinstant", "type": "string", "optional": False})
+        payload["timeinstant"] = entity.get("timeinstant")
+
+    return json.dumps({
+        "schema": {
+            "type": "struct",
+            "fields": fields,
+            "optional": False
+        },
+        "payload": payload
+    }).encode("utf-8")
+
+
 @app.agent(input_topic)
 async def process(stream):
     async for raw_value in stream:
@@ -145,9 +201,11 @@ async def process(stream):
 
             service = headers.get("fiware-service", "default").lower()
             servicepath = headers.get("fiware-servicepath")
-            entity_type = body.get("entityType", "unknown").lower()
+            is_lastdata = headers.get("lastdata", False)
 
-            topic_name = sanitize_topic(f"{servicepath}_{entity_type}")
+            entity_type = body.get("entityType", "unknown").lower()
+            suffix = "_lastdata" if is_lastdata else ""
+            topic_name = sanitize_topic(f"{servicepath}_{entity_type}{suffix}")
             output_topic = app.topic(topic_name)
 
             entity = {
@@ -186,7 +244,12 @@ async def process(stream):
             entity.update(attributes)
             kafka_message = to_kafka_connect_schema(entity, schema_overrides)
 
-            await output_topic.send(value=json.dumps(kafka_message).encode("utf-8"))
+            kafka_key = build_kafka_key(entity, include_timeinstant=not is_lastdata)
+
+            await output_topic.send(
+                key=kafka_key,
+                value=json.dumps(kafka_message).encode("utf-8")
+            )
 
             print(f"✅ Processed and sent to topic '{topic_name}': {entity['entityid']}")
 
