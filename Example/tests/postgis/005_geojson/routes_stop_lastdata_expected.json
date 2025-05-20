@@ -9,7 +9,7 @@
   "table": "alcobendas.routes_stop_lastdata",
   "conditions": [
     {
-		"timeinstant" : "2020-03-27T07:45:00.000Z",
+		"timeinstant" : "2025-05-16T07:45:00.000Z",
 		"location" : "POINT (-3.639408946 40.54106925)",
 		"name" : "Parada 64",
 		"category" : "Pública",
@@ -20,7 +20,6 @@
 		"address" : "Avenida Primero de Mayo, nº 57, Puerto del Rosario",
 		"entityid" : "STOP-001",
 		"entitytype" : "Stop",
-		"recvtime" : "2024-06-13T09:50:18.700Z",
 		"fiwareservicepath" : "\/routes",
 		"streetaddress" : "Carretera CL 615, km. 55"
 	},
@@ -39,7 +38,6 @@
 		"country" : "spain",
 		"entityid" : "1:0000447500000001",
 		"entitytype" : "Stop",
-		"recvtime" : "2024-06-13T10:17:38.442Z",
 		"fiwareservicepath" : "\/routes"
 	},
 	{
@@ -57,7 +55,6 @@
 		"country" : "spain",
 		"entityid" : "1:0000447700000001",
 		"entitytype" : "Stop",
-		"recvtime" : "2024-06-13T10:17:38.472Z",
 		"fiwareservicepath" : "\/routes"
 	},
 	{
@@ -75,7 +72,6 @@
 		"country" : "spain",
 		"entityid" : "1:0000449300000001",
 		"entitytype" : "Stop",
-		"recvtime" : "2024-06-13T10:17:38.465Z",
 		"fiwareservicepath" : "\/routes"
 	}]
 }

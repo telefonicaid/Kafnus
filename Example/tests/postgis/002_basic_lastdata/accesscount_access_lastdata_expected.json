@@ -41,7 +41,6 @@
       "addresscountry" : "NA",
       "entityid" : "NPO-104",
       "entitytype" : "Access",
-      "recvtime" : "2025-02-17T09:00:26.631Z",
       "fiwareservicepath" : "\/accesscount"
     },
     {
@@ -77,7 +76,6 @@
       "addresscountry" : "NA",
       "entityid" : "NPO-102",
       "entitytype" : "Access",
-      "recvtime" : "2025-02-20T11:31:43.953Z",
       "fiwareservicepath" : "\/accesscount"
     },
     {
@@ -113,7 +111,6 @@
       "addresscountry" : "NA",
       "entityid" : "NPO-103",
       "entitytype" : "Access",
-      "recvtime" : "2025-02-20T11:31:43.957Z",
       "fiwareservicepath" : "\/accesscount"
     },
     {
@@ -149,7 +146,6 @@
       "addresscountry" : "NA",
       "entityid" : "NPO-101",
       "entitytype" : "Access",
-      "recvtime" : "2025-05-16T10:01:22.226Z",
       "fiwareservicepath" : "\/accesscount"
     }]
 }

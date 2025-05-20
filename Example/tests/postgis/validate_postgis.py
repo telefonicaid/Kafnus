@@ -3,8 +3,8 @@ import json
 from dateutil import parser as dateparser
 import argparse
 from shapely.wkb import loads as load_wkb
-from shapely.errors import WKBReadingError
 import binascii
+import ast
 
 def load_test_spec(path):
     with open(path) as f:
@@ -56,10 +56,25 @@ def compare_row(expected, actual):
                 elif op == "eq" and actual_value != val:
                     return False
         else:
+            # We need to cover when expected_value is a json
+            if isinstance(expected_value, str):
+                try:
+                    parsed_expected = json.loads(expected_value)
+                    expected_value = parsed_expected
+                except (ValueError, json.JSONDecodeError):
+                    pass  # No json, keep going
+
+            # In case of json, actual_value should already be a dictionary, just in case
+            if isinstance(actual_value, str):
+                try:
+                    parsed_actual = json.loads(actual_value)
+                    actual_value = parsed_actual
+                except (ValueError, json.JSONDecodeError):
+                    pass
+
+            # Final comparation
             if actual_value != expected_value:
-                # Uncomment this for helpful debug mismatches
-                #if actual.get('entityid') == expected.get('entityid'):
-                #    print(f"🔎 Mismatch in '{key}': expected {expected_value}, got {actual_value}")
+                #print(f"🔎 Mismatch in '{key}': expected {expected_value}, got {actual_value}")
                 return False
     return True
 
