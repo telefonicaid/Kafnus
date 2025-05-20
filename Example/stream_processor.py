@@ -265,8 +265,6 @@ async def process(stream):
 
                 attributes[name] = value
             
-            print("Valor para linearrivaltime antes de esquema:", attributes.get("linearrivaltime"))
-
             entity.update(attributes)
             kafka_message = to_kafka_connect_schema(entity, schema_overrides)
 

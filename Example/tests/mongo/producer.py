@@ -21,4 +21,4 @@ topic = "mongo_test"
 producer.send(topic, value=payload)
 producer.flush()
 
-print(f"✅ Evento enviado a Kafka desde archivo: {json_file}")
+print(f"✅ Event sent to Kafka from file: {json_file}")
