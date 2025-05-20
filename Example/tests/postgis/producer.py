@@ -22,7 +22,12 @@ def send_notification():
     producer.flush()
 
     print(f"✅ Notification sent successfully to raw_notifications")
-    print(f"This topic will be created if not exists: {notificacion['headers']['fiware-servicepath'].strip('/')}_{notificacion['body']['entityType'].lower()}"+"_lastdata" if notificacion['headers']['lastdata'] else "")
+    topic_name = (
+        f"{notificacion['headers']['fiware-servicepath'].strip('/')}_{notificacion['body']['entityType'].lower()}_lastdata"
+        if notificacion['headers'].get('lastdata')
+        else f"{notificacion['headers']['fiware-servicepath'].strip('/')}_{notificacion['body']['entityType'].lower()}"
+    )
+    print(f"This topic will be created if not exists: {topic_name}")
 
 if __name__ == "__main__":
     send_notification()

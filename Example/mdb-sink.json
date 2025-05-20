@@ -1,0 +1,15 @@
+{
+  "name": "mongo-sink",
+  "config": {
+    "connector.class": "com.mongodb.kafka.connect.MongoSinkConnector",
+    "tasks.max": "1",
+    "topics": "mongo_test",
+    "connection.uri": "mongodb://mongo:27017",
+    "database": "test",
+    "collection": "test",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": false,
+    "max.batch.size": "1"
+  }
+}

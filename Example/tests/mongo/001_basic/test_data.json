@@ -1,0 +1,22 @@
+{
+  "location": {
+    "id": "NPO-TEST-001",
+    "type": "access_point",
+    "area": "Zona Norte",
+    "coordinates": {
+      "lat": 40.4168,
+      "lon": -3.7038
+    }
+  },
+  "timestamp": "2025-05-20T12:34:56Z",
+  "people": {
+    "incoming": 18,
+    "outgoing": 9,
+    "averageStayMinutes": 15
+  },
+  "status": "abierto",
+  "metadata": {
+    "servicePath": "/testpath",
+    "source": "sensor_edge_03"
+  }
+}
