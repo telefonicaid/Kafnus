@@ -1,6 +1,7 @@
 {
+  "flow": "historic",
   "headers": {
-    "fiware-service": "parking",
+    "fiware-service": "alcobendas",
     "fiware-servicepath": "/parking"
   },
   "body": {

@@ -1,8 +1,8 @@
 {
+  "flow": "lastdata",
   "headers": {
-    "fiware-service": "routes",
-    "fiware-servicepath": "/routes",
-    "lastdata": true
+    "fiware-service": "alcobendas",
+    "fiware-servicepath": "/routes"
   },
   "body": {
     "entityId": "STOP-001",

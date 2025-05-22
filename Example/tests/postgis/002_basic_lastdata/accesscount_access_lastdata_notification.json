@@ -1,8 +1,8 @@
 {
+  "flow": "lastdata",
   "headers": {
-    "fiware-service": "accesscount",
-    "fiware-servicepath": "/accesscount",
-    "lastdata": true
+    "fiware-service": "alcobendas",
+    "fiware-servicepath": "/accesscount"
   },
   "body": {
     "entityId": "NPO-101",

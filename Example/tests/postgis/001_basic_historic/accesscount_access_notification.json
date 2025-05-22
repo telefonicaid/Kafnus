@@ -1,6 +1,7 @@
 {
+  "flow": "historic",
   "headers": {
-    "fiware-service": "accesscount",
+    "fiware-service": "alcobendas",
     "fiware-servicepath": "/accesscount"
   },
   "body": {

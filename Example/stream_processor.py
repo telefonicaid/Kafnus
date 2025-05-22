@@ -18,8 +18,12 @@ app = faust.App(
     topic_allow_declare=True
 )
 
-# Input Kafka topic to consume raw NGSI notifications
-input_topic = app.topic('raw_notifications')
+# Input Kafka topics to consume raw NGSI notifications
+# Separate topic for different flows or table type
+raw_historic_topic = app.topic('raw_historic')
+raw_lastdata_topic = app.topic('raw_lastdata')
+raw_mutable_topic = app.topic('raw_mutable')
+errors_topic = app.topic('errors')
 
 
 def to_wkb_struct_from_wkt(wkt_str, field_name, srid=4326):
@@ -212,70 +216,97 @@ def build_kafka_key(entity: dict, include_timeinstant=False):
     }).encode("utf-8")
 
 
-@app.agent(input_topic)
-async def process(stream):
+async def handle_entity(raw_value, suffix="", include_timeinstant=True):
     """
-    Faust agent that consumes raw NGSI notifications, processes and transforms them
-    into Kafka Connect schema format, and sends to appropriate output topics.
+    Logic for Faust agents, consumes raw NGSI notifications, processes and transforms
+    them into Kafka Connect schema format, and sends to appropriate output topics.
     Supports handling geo attributes and dynamic topic naming based on message headers.
     """
+    
+    event = json.loads(raw_value)
+    headers = event.get("headers", {})
+    body = event.get("body", {})
+
+    service = headers.get("fiware-service", "default").lower()
+    servicepath = headers.get("fiware-servicepath", "/")
+    entity_type = body.get("entityType", "unknown").lower()
+
+    target_table = sanitize_topic(f"{servicepath}_{entity_type}{suffix}")
+    topic_name = f"{service}{suffix}"
+    output_topic = app.topic(topic_name)
+
+    entity = {
+        "entityid": body.get("entityId"),
+        "entitytype": body.get("entityType"),
+        "fiwareservicepath": servicepath
+    }
+
+    attributes = {}
+    schema_overrides = {}
+
+    for attr in sorted(body.get("attributes", []), key=lambda x: x['attrName']):
+        name = attr["attrName"]
+        value = attr["attrValue"]
+        attr_type = attr.get("attrType", "")
+
+        if attr_type.startswith("geo:"):
+            wkt_str = to_wkt_geometry(attr_type, value)
+            if wkt_str:
+                wkb_struct = to_wkb_struct_from_wkt(wkt_str, name)
+                if wkb_struct:
+                    attributes[name] = wkb_struct["payload"]
+                    schema_overrides[name] = wkb_struct["schema"]
+                    continue
+        elif attr_type == "json":
+            try:
+                value = json.dumps(value, ensure_ascii=False)
+            except Exception as e:
+                print(f"⚠️ Error serializing field {name} as JSON string: {e}")
+                value = str(value)
+
+        attributes[name] = value
+
+    entity.update(attributes)
+    kafka_message = to_kafka_connect_schema(entity, schema_overrides)
+    kafka_key = build_kafka_key(entity, include_timeinstant=include_timeinstant)
+
+    await output_topic.send(
+        key=kafka_key,
+        value=json.dumps(kafka_message).encode("utf-8"),
+        headers=[("target_table", target_table.encode())]
+    )
+
+    print(f"✅ [{suffix or 'historic'}] Sent to topic '{topic_name}': {entity['entityid']}")
+
+# Historic Agent
+@app.agent(raw_historic_topic)
+async def process_historic(stream):
     async for raw_value in stream:
         try:
-            event = json.loads(raw_value)
-            headers = event.get("headers", {})
-            body = event.get("body", {})
-
-            service = headers.get("fiware-service", "default").lower()
-            servicepath = headers.get("fiware-servicepath")
-            is_lastdata = headers.get("lastdata", False)
-
-            entity_type = body.get("entityType", "unknown").lower()
-            suffix = "_lastdata" if is_lastdata else ""
-            topic_name = sanitize_topic(f"{servicepath}_{entity_type}{suffix}")
-            output_topic = app.topic(topic_name)
-
-            entity = {
-                "entityid": body.get("entityId"),
-                "entitytype": body.get("entityType"),
-                "fiwareservicepath": servicepath
-            }
-
-            attributes = {}
-            schema_overrides = {}
-
-            for attr in sorted(body.get("attributes", []), key=lambda x: x['attrName']):
-                name = attr["attrName"]
-                value = attr["attrValue"]
-                attr_type = attr.get("attrType", "")
-
-                if attr_type.startswith("geo:"):
-                    wkt_str = to_wkt_geometry(attr_type, value)
-                    if wkt_str:
-                        wkb_struct = to_wkb_struct_from_wkt(wkt_str, name)
-                        if wkb_struct:
-                            attributes[name] = wkb_struct["payload"]
-                            schema_overrides[name] = wkb_struct["schema"]
-                            continue
-                elif attr_type == "json":
-                    try:
-                        value = json.dumps(value, ensure_ascii=False)
-                    except Exception as e:
-                        print(f"⚠️ Error serializing field {name} as JSON string: {e}")
-                        value = str(value)
-
-                attributes[name] = value
-            
-            entity.update(attributes)
-            kafka_message = to_kafka_connect_schema(entity, schema_overrides)
-
-            kafka_key = build_kafka_key(entity, include_timeinstant=not is_lastdata)
-
-            await output_topic.send(
-                key=kafka_key,
-                value=json.dumps(kafka_message).encode("utf-8")
-            )
-
-            print(f"✅ Processed and sent to topic '{topic_name}': {entity['entityid']}")
-
+            await handle_entity(raw_value, suffix="", include_timeinstant=True)
         except Exception as e:
-            print(f"❌ Error processing message: {e}")
+            print(f"❌ Historic error: {e}")
+
+# Lastdata Agent
+@app.agent(raw_lastdata_topic)
+async def process_lastdata(stream):
+    async for raw_value in stream:
+        try:
+            await handle_entity(raw_value, suffix="_lastdata", include_timeinstant=False)
+        except Exception as e:
+            print(f"❌ Lastdata error: {e}")
+
+# Mutable Agent
+@app.agent(raw_mutable_topic)
+async def process_mutable(stream):
+    async for raw_value in stream:
+        try:
+            await handle_entity(raw_value, suffix="_mutable", include_timeinstant=True)
+        except Exception as e:
+            print(f"❌ Mutable error: {e}")
+
+# Errors Agent
+@app.agent(errors_topic)
+async def process_errors(stream):
+    async for _ in stream:
+        pass  # Placeholder for future logic
