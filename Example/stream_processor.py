@@ -23,7 +23,7 @@ app = faust.App(
 raw_historic_topic = app.topic('raw_historic')
 raw_lastdata_topic = app.topic('raw_lastdata')
 raw_mutable_topic = app.topic('raw_mutable')
-errors_topic = app.topic('errors')
+errors_topic = app.topic('postgis_errors')
 
 
 def to_wkb_struct_from_wkt(wkt_str, field_name, srid=4326):
@@ -305,8 +305,92 @@ async def process_mutable(stream):
         except Exception as e:
             print(f"❌ Mutable error: {e}")
 
+
 # Errors Agent
 @app.agent(errors_topic)
 async def process_errors(stream):
-    async for _ in stream:
-        pass  # Placeholder for future logic
+    async for message in stream.events():
+        headers = {k: v.decode("utf-8") for k, v in (message.message.headers or [])}
+        value_raw = message.value
+
+        try:
+            value_json = json.loads(value_raw)
+        except Exception as e:
+            print(f"⚠️ Error parsing JSON payload: {e}")
+            continue
+
+        # Extract full error information
+        full_error_msg = headers.get("__connect.errors.exception.message", "Unknown error")
+        
+        # Get timestamp
+        timestamp = format_timestamp_with_utc()
+        
+        # Get database name
+        db_name = headers.get("__connect.errors.topic", "")
+        if db_name=="":
+            db_name_match = re.search(r'INSERT INTO "([^"]+)"', full_error_msg)
+            if db_name_match:
+                db_name = db_name_match.group(1).split('.')[0]
+
+        # Get name of output topic
+        error_topic_name = f"{db_name}_error_log"
+        error_topic = app.topic(error_topic_name, value_serializer='json')
+
+        # Process error message
+        error_match = re.search(r'(ERROR: .+?)(\n|$)', full_error_msg)
+        if error_match:
+            error_message = error_match.group(1).strip()
+            # Include Details if present
+            detail_match = re.search(r'(Detail: .+?)(\n|$)', full_error_msg)
+            if detail_match:
+                error_message += f" - {detail_match.group(1).strip()}"
+        else:
+            error_message = "Unknown SQL error"
+
+        # Extract query if aviable
+        query_match = re.search(r'(INSERT INTO "[^"]+"[^)]+\)[^)]*\))', full_error_msg)
+        if query_match:
+            original_query = query_match.group(1)
+        else:
+            # Construct query from payload
+            payload = value_json.get("payload", {})
+            table = headers.get("target_table", "unknown_table")
+            
+            if payload:
+                columns = ",".join(f'"{k}"' for k in payload.keys())
+                values = []
+                for k, v in payload.items():
+                    if isinstance(v, str):
+                        v = v.replace("'", "''")
+                        values.append(f"'{v}'")
+                    elif v is None:
+                        values.append("NULL")
+                    else:
+                        values.append(str(v))
+                values_str = ",".join(values)
+                original_query = f'INSERT INTO "{db_name}"."{table}" ({columns}) VALUES ({values_str})'
+            else:
+                original_query = ""
+
+        # Construct kafka message ready for connector
+        error_record = {
+            "schema": {
+                "type": "struct",
+                "fields": [
+                    {"field": "timestamp", "type": "string", "optional": False},
+                    {"field": "error", "type": "string", "optional": False},
+                    {"field": "query", "type": "string", "optional": True}
+                ],
+                "optional": False
+            },
+            "payload": {
+                "timestamp": timestamp,
+                "error": error_message,
+                "query": original_query
+            }
+        }
+
+        # Send to client error_log topic
+        await error_topic.send(value=error_record)
+
+        print(f"🐞 Logged SQL error to '{error_topic_name}': {error_message}")

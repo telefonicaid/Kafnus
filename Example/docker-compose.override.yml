@@ -7,8 +7,14 @@ services:
         condition: service_healthy
     command: >
       bash -c "
-        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic raw_notifications --partitions 1 --replication-factor 1 &&
-        echo 'Topic raw_notifications created or already created.'
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic raw_historic --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_historic created or already created.'
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic raw_lastdata --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_lastdata created or already created.'
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic raw_mutable --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_mutable created or already created.'
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic postgis_errors --partitions 1 --replication-factor 1 &&
+        echo 'Topic postgis_errors created or already created.'
       "
     networks:
       - kafka-postgis-net
