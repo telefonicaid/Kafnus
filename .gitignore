@@ -1,3 +1,5 @@
 Example/tests/producer-env/
 Example/tests/postgis/validate-env/
 own-jdbc-connector/kafka-connect-jdbc/target
+*.jar
+**/target/
