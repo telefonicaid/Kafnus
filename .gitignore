@@ -3,3 +3,4 @@ Example/tests/postgis/validate-env/
 own-jdbc-connector/kafka-connect-jdbc/target
 *.jar
 **/target/
+Example/tests/kafka-fiware-env
