@@ -12,7 +12,7 @@
     "pk.mode": "record_key",
     "pk.fields": "entityid",
     "table.name.format": "alcobendas.${topic}",
-    "delete.enabled": false,
+    "delete.enabled": true,
 
     "transforms": "HeaderRouter,convertTimestamp,convertRecvTime",
 
@@ -41,8 +41,7 @@
     "errors.deadletterqueue.context.headers.enable": "true",
     "errors.log.enable": "true",
     "errors.log.include.messages": "true",
-    "batch.size": "3",
-    "max.retries": 0,
-    "retry.backoff.ms": 0
+    "max.retries": "0",
+    "retry.backoff.ms": "0"
   }
 }

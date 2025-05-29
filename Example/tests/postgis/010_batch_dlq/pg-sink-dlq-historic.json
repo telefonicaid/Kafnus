@@ -1,8 +1,7 @@
 {
-  "name": "jdbc-historical-sink",
+  "name": "jdbc-dlq-sink-historic",
   "config": {
     "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
-    "tasks.max": "1",
     "topics": "alcobendas",
     "connection.url": "jdbc:postgresql://iot-postgis:5432/alcobendas",
     "connection.user": "postgres",
@@ -41,7 +40,12 @@
     "errors.deadletterqueue.context.headers.enable": "true",
     "errors.log.enable": "true",
     "errors.log.include.messages": "true",
-    "max.retries": "0",
-    "retry.backoff.ms": "0"
+    "max.retries": 1,
+    "retry.backoff.ms": 3000,
+
+    "batch.size": "3",
+    "tasks.max": "1",
+    "consumer.max.poll.records": "3",
+    "connection.batch.wait.max.ms": "10000"
   }
 }

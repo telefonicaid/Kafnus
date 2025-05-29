@@ -15,6 +15,8 @@ services:
         echo 'Topic raw_mutable created or already created.'
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic postgis_errors --partitions 1 --replication-factor 1 &&
         echo 'Topic postgis_errors created or already created.'
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ngsi-processor-lastdata_entity_timeinstant-changelog --partitions 1 --replication-factor 1 &&
+        echo 'Topic ngsi-processor-lastdata_entity_timeinstant-changelog created or already created.'
       "
     networks:
       - kafka-postgis-net

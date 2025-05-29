@@ -41,8 +41,7 @@
     "errors.deadletterqueue.context.headers.enable": "true",
     "errors.log.enable": "true",
     "errors.log.include.messages": "true",
-    "batch.size": "3",
-    "max.retries": 0,
-    "retry.backoff.ms": 0
+    "max.retries": "0",
+    "retry.backoff.ms": "0"
   }
 }

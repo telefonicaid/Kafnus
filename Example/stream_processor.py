@@ -92,6 +92,17 @@ def format_timestamp_with_utc(dt=None):
         return dt.astimezone(timezone.utc).isoformat(timespec='milliseconds')
 
 
+def extract_timestamp(entity: dict) -> float:
+    """
+    Extract and transform to epoch seconds
+    """
+    ts = entity.get("TimeInstant") or entity.get("timestamp")
+    if ts:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return dt.timestamp()
+    return 0.0
+
+
 def sanitize_topic(name):
     """
     Sanitizes a string to be a valid Kafka topic name by replacing disallowed characters with underscores.
@@ -287,14 +298,76 @@ async def process_historic(stream):
         except Exception as e:
             print(f"❌ Historic error: {e}")
 
+
+# Table of last timeinstant for entity
+last_seen_timestamps = app.Table(
+    'lastdata_entity_timeinstant',
+    default=float,
+    partitions=1  # Match the raw_lastdata topic
+)
+
+
 # Lastdata Agent
 @app.agent(raw_lastdata_topic)
 async def process_lastdata(stream):
     async for raw_value in stream:
         try:
-            await handle_entity(raw_value, suffix="_lastdata", include_timeinstant=False)
+            event = json.loads(raw_value)
+            body = event.get("body", {})
+            entity_id = body.get("entityId")
+            alteration_type = event.get("alterationType")
+
+            if not entity_id:
+                continue
+
+            # Handle entity deletion
+            if alteration_type == "entityDelete":
+                # Create a minimal entity structure for deletion
+                delete_entity = {
+                    "entityid": entity_id,
+                    "entitytype": body.get("entityType"),
+                    "fiwareservicepath": event.get("headers", {}).get("fiware-servicepath", "/")
+                }
+                
+                # Get topic info (same logic as handle_entity)
+                headers = event.get("headers", {})
+                service = headers.get("fiware-service", "default").lower()
+                servicepath = headers.get("fiware-servicepath", "/")
+                entity_type = body.get("entityType", "unknown").lower()
+                
+                target_table = sanitize_topic(f"{servicepath}_{entity_type}_lastdata")
+                topic_name = f"{service}_lastdata"
+                output_topic = app.topic(topic_name)
+                
+                # Build Kafka key (same as handle_entity with include_timeinstant=False)
+                kafka_key = build_kafka_key(delete_entity, include_timeinstant=False)
+                
+                # Send null value to trigger deletion
+                await output_topic.send(
+                    key=kafka_key,
+                    value=None,  # This will trigger deletion in JDBC sink with delete.enabled=true
+                    headers=[("target_table", target_table.encode())]
+                )
+                
+                # Also remove from timestamps table
+                last_seen_timestamps.pop(entity_id, None)
+                
+                print(f"🗑️ [lastdata] Sent delete for entity: {entity_id}")
+                continue
+
+            # Processing flow for normal updates
+            current_ts = extract_timestamp(body)
+            last_ts = last_seen_timestamps[entity_id]
+
+            if current_ts >= last_ts:
+                last_seen_timestamps[entity_id] = current_ts
+                await handle_entity(raw_value, suffix="_lastdata", include_timeinstant=False)
+            else:
+                print(f"⚠️ Ignorado {entity_id} por timestamp viejo ({current_ts} < {last_ts})")
+
         except Exception as e:
             print(f"❌ Lastdata error: {e}")
+
 
 # Mutable Agent
 @app.agent(raw_mutable_topic)
