@@ -287,7 +287,8 @@ async def handle_entity(raw_value, suffix="", include_timeinstant=True):
         headers=[("target_table", target_table.encode())]
     )
 
-    print(f"✅ [{suffix or 'historic'}] Sent to topic '{topic_name}': {entity['entityid']}")
+    print(f"✅ [{suffix.lstrip('_') or 'historic'}] Sent to topic '{topic_name}' (table: '{target_table}'): {entity['entityid']}")
+
 
 # Historic Agent
 @app.agent(raw_historic_topic)
