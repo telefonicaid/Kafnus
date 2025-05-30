@@ -1,0 +1,30 @@
+{
+  "name": "jdbc-errors-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "tasks.max": "1",
+    "topics": "alcobendas_error_log",
+    "connection.url": "jdbc:postgresql://iot-postgis:5432/alcobendas",
+    "connection.user": "postgres",
+    "connection.password": "postgres",
+
+    "insert.mode": "insert",
+    "table.name.format": "alcobendas.${topic}",
+    "auto.create": true,
+    "auto.evolve": false,
+
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": true,
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+
+    "transforms": "convertTimestamp",
+    "transforms.convertTimestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+    "transforms.convertTimestamp.target.type": "Timestamp",
+    "transforms.convertTimestamp.field": "timestamp",
+    "transforms.convertTimestamp.format": "yyyy-MM-dd'T'HH:mm:ss.SSSX",
+
+    "errors.tolerance": "all",
+    "errors.log.enable": true,
+    "errors.log.include.messages": true
+  }
+}

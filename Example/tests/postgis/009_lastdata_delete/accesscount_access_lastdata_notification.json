@@ -1,0 +1,36 @@
+{
+  "flow": "lastdata",
+  "headers": {
+    "fiware-service": "alcobendas",
+    "fiware-servicepath": "/accesscount"
+  },
+  "body": {
+    "entityId": "NPO-101",
+    "entityType": "Access",
+    "attributes": [
+      { "attrName": "timeinstant", "attrValue": "2025-05-02T09:35:00Z" },
+      { "attrName": "name", "attrValue": "Ayuntamiento de Lorca" },
+      { "attrName": "description", "attrValue": "Ayuntamiento de Lorca" },
+      { "attrName": "period", "attrValue": 60.0 },
+      { "attrName": "category", "attrValue": "barrera" },
+      { "attrName": "numberofincoming", "attrValue": 67 },
+      { "attrName": "numberofoutgoing", "attrValue": 45 },
+      { "attrName": "status", "attrValue": "abierto" },
+      { "attrName": "averagestay", "attrValue": 15 },
+      { "attrName": "entityid", "attrValue": "NPO-101" },
+      { "attrName": "entitytype", "attrValue": "Access" },
+      { "attrName": "refzone", "attrValue": "ZONA-NPO-101" },
+      { "attrName": "width", "attrValue": 120.0 },
+      { "attrName": "length", "attrValue": 400.0 },
+      { "attrName": "capacity", "attrValue": 150.0 },
+      { "attrName": "averagestay", "attrValue": 15.0 },
+      { "attrName": "floor", "attrValue": 0.0 },
+      {
+        "attrName": "location",
+        "attrType": "geo:point",
+        "attrValue": "0.026029,39.986109"
+      },
+      { "attrName": "streetaddress", "attrValue": "Carretera CL 615, km. 55" }
+    ]
+  }
+}

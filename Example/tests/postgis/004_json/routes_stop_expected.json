@@ -1,0 +1,21 @@
+{
+  "connection": {
+    "host": "localhost",
+    "port": 5432,
+    "dbname": "alcobendas",
+    "user": "postgres",
+    "password": "postgres"
+  },
+  "table": "alcobendas.routes_stop",
+  "conditions": [
+    {
+      "entityid": "STOP-001",
+      "entitytype": "Stop",
+      "fiwareservicepath": "/routes",
+      "timeinstant": "2025-05-16T10:30:00.00Z",
+      "enabled": true,
+      "status": "publidada",
+      "linearrivaltime": "{\"1:22023\": [{\"tripId\": \"1:000003900002202300001011\", \"absoluteArrivalTime\": \"2024-03-21T11:08:00Z\", \"relativeArrivalTime\": 1911, \"destination\": \"Cabo De Palos\", \"direction\": \"direct\"}, {\"tripId\": \"1:000003900002202300001013\", \"absoluteArrivalTime\": \"2024-03-21T11:53:00Z\", \"relativeArrivalTime\": 4611, \"destination\": \"Cabo De Palos\", \"direction\": \"direct\"}]}"
+    }
+  ]
+}
