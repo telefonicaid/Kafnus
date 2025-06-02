@@ -1,0 +1,433 @@
+From ae0e030ff11f8bd52028561098d5f702bafd331e Mon Sep 17 00:00:00 2001
+From: GregorioBlazquez <gregorio.blazquez@estudiante.uam.es>
+Date: Mon, 2 Jun 2025 10:37:04 +0200
+Subject: [PATCH] Add PostGIS geometry support (manual resolution of PR #1048)
+
+---
+ pom.xml                                       |  7 ++
+ .../dialect/PostgreSqlDatabaseDialect.java    | 66 ++++++++++---
+ .../connect/jdbc/dialect/BaseDialectTest.java | 72 +++++++++------
+ .../PostgreSqlDatabaseDialectTest.java        | 92 ++++++++++++++++---
+ 4 files changed, 185 insertions(+), 52 deletions(-)
+
+diff --git a/pom.xml b/pom.xml
+index da6cd663..94e9f435 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -57,6 +57,8 @@
+         <commons-io.version>2.4</commons-io.version>
+         <kafka.connect.maven.plugin.version>0.11.1</kafka.connect.maven.plugin.version>
+         <sqlite-jdbc.version>3.25.2</sqlite-jdbc.version>
++        <postgresql.version>42.2.19</postgresql.version>
++        <debezium.version>1.5.0.Final</debezium.version>
+         <oracle.jdbc.driver.version>19.7.0.0</oracle.jdbc.driver.version>
+         <mssqlserver.jdbc.driver.version>8.4.1.jre8</mssqlserver.jdbc.driver.version>
+         <postgresql.version>42.4.3</postgresql.version>
+@@ -132,6 +134,11 @@
+             <version>${jtds.driver.version}</version>
+             <scope>runtime</scope>
+         </dependency>
++        <dependency>
++            <groupId>io.debezium</groupId>
++            <artifactId>debezium-core</artifactId>
++            <version>${debezium.version}</version>
++        </dependency>
+ 
+         <dependency>
+             <groupId>junit</groupId>
+diff --git a/src/main/java/io/confluent/connect/jdbc/dialect/PostgreSqlDatabaseDialect.java b/src/main/java/io/confluent/connect/jdbc/dialect/PostgreSqlDatabaseDialect.java
+index fbef8812..065986ce 100644
+--- a/src/main/java/io/confluent/connect/jdbc/dialect/PostgreSqlDatabaseDialect.java
++++ b/src/main/java/io/confluent/connect/jdbc/dialect/PostgreSqlDatabaseDialect.java
+@@ -15,6 +15,19 @@
+ 
+ package io.confluent.connect.jdbc.dialect;
+ 
++import java.sql.Connection;
++import java.sql.PreparedStatement;
++import java.sql.ResultSet;
++import java.sql.SQLException;
++import java.sql.Types;
++
++import java.util.Arrays;
++import java.util.Collection;
++import java.util.Collections;
++import java.util.Map;
++import java.util.Set;
++import java.util.UUID;
++
+ import io.confluent.connect.jdbc.dialect.DatabaseDialectProvider.SubprotocolBasedProvider;
+ import io.confluent.connect.jdbc.sink.metadata.SinkRecordField;
+ import io.confluent.connect.jdbc.source.ColumnMapping;
+@@ -25,6 +38,11 @@ import io.confluent.connect.jdbc.util.ExpressionBuilder.Transform;
+ import io.confluent.connect.jdbc.util.IdentifierRules;
+ import io.confluent.connect.jdbc.util.TableDefinition;
+ import io.confluent.connect.jdbc.util.TableId;
++import io.debezium.data.geometry.Geography;
++import io.debezium.data.geometry.Geometry;
++import io.debezium.data.geometry.Point;
++import io.debezium.time.ZonedTime;
++import io.debezium.time.ZonedTimestamp;
+ import org.apache.kafka.common.config.AbstractConfig;
+ import org.apache.kafka.common.utils.Utils;
+ import org.apache.kafka.connect.data.Date;
+@@ -32,24 +50,13 @@ import org.apache.kafka.connect.data.Decimal;
+ import org.apache.kafka.connect.data.Schema;
+ import org.apache.kafka.connect.data.Schema.Type;
+ import org.apache.kafka.connect.data.SchemaBuilder;
++import org.apache.kafka.connect.data.Struct;
+ import org.apache.kafka.connect.data.Time;
+ import org.apache.kafka.connect.data.Timestamp;
+ import org.apache.kafka.connect.errors.DataException;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
+-import java.sql.Connection;
+-import java.sql.PreparedStatement;
+-import java.sql.ResultSet;
+-import java.sql.SQLException;
+-import java.sql.Types;
+-import java.util.Arrays;
+-import java.util.Collection;
+-import java.util.Collections;
+-import java.util.Map;
+-import java.util.Set;
+-import java.util.UUID;
+-
+ /**
+  * A {@link DatabaseDialect} for PostgreSQL.
+  */
+@@ -77,6 +84,7 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
+   static final String JSON_TYPE_NAME = "json";
+   static final String JSONB_TYPE_NAME = "jsonb";
+   static final String UUID_TYPE_NAME = "uuid";
++  static final String PRECISION_PARAMETER_KEY = "connect.decimal.precision";
+ 
+   /**
+    * Define the PG datatypes that require casting upon insert/update statements.
+@@ -299,6 +307,16 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
+           return "TIME";
+         case Timestamp.LOGICAL_NAME:
+           return "TIMESTAMP";
++        case ZonedTime.SCHEMA_NAME:
++          return "TIMETZ";
++        case ZonedTimestamp.SCHEMA_NAME:
++          return "TIMESTAMPTZ";
++        case Geometry.LOGICAL_NAME:
++          return "GEOMETRY";
++        case Geography.LOGICAL_NAME:
++          return "GEOGRAPHY";
++        case Point.LOGICAL_NAME:
++          return "GEOMETRY (POINT)";
+         default:
+           // fall through to normal types
+       }
+@@ -497,6 +515,7 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
+           case INT64:
+             newValue = valueCollection.toArray(new Long[0]);
+             break;
++            // ToDo: Handle PostGis datatypes (Geometry, Geography and Point)
+           default:
+             break;
+         }
+@@ -510,6 +529,9 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
+       default:
+         break;
+     }
++    if (maybeBindPostgresDataType(statement, index, schema, value)) {
++      return true;
++    }
+     return super.maybeBindPrimitive(statement, index, schema, value);
+   }
+ 
+@@ -607,4 +629,24 @@ public class PostgreSqlDatabaseDialect extends GenericDatabaseDialect {
+     return defn.scale();
+   }
+ 
++  private boolean maybeBindPostgresDataType(
++          PreparedStatement statement, int index, Schema schema, Object value) throws SQLException {
++    if (schema.name() != null) {
++      switch (schema.name()) {
++        case ZonedTime.SCHEMA_NAME:
++        case ZonedTimestamp.SCHEMA_NAME:
++          statement.setObject(index, value, Types.OTHER);
++          return true;
++        case Geometry.LOGICAL_NAME:
++        case Geography.LOGICAL_NAME:
++        case Point.LOGICAL_NAME:
++          byte[] wkb = ((Struct) value).getBytes(Geometry.WKB_FIELD);
++          statement.setBytes(index, wkb);
++          return true;
++        default:
++          return false;
++      }
++    }
++    return false;
++  }
+ }
+diff --git a/src/test/java/io/confluent/connect/jdbc/dialect/BaseDialectTest.java b/src/test/java/io/confluent/connect/jdbc/dialect/BaseDialectTest.java
+index 50354c50..fde2d861 100644
+--- a/src/test/java/io/confluent/connect/jdbc/dialect/BaseDialectTest.java
++++ b/src/test/java/io/confluent/connect/jdbc/dialect/BaseDialectTest.java
+@@ -15,30 +15,14 @@
+ 
+ package io.confluent.connect.jdbc.dialect;
+ 
+-import io.confluent.connect.jdbc.source.ColumnMapping;
+-import io.confluent.connect.jdbc.util.ColumnDefinition;
+-import io.confluent.connect.jdbc.util.ColumnDefinition.Mutability;
+-import io.confluent.connect.jdbc.util.ColumnDefinition.Nullability;
+-import java.sql.Types;
+-import java.time.ZoneOffset;
+-import org.apache.kafka.connect.data.Date;
+-import org.apache.kafka.connect.data.Decimal;
+-import org.apache.kafka.connect.data.Field;
+-import org.apache.kafka.connect.data.Schema;
+-import org.apache.kafka.connect.data.SchemaBuilder;
+-import org.apache.kafka.connect.data.Struct;
+-import org.apache.kafka.connect.data.Time;
+-import org.apache.kafka.connect.data.Timestamp;
+-import org.apache.kafka.connect.errors.ConnectException;
+-import org.junit.After;
+-import org.junit.Before;
+-import org.junit.Test;
+-
+ import java.math.BigDecimal;
+ import java.nio.ByteBuffer;
+ import java.sql.DriverManager;
+ import java.sql.PreparedStatement;
+ import java.sql.SQLException;
++import java.sql.Types;
++import java.time.ZoneOffset;
++
+ import java.util.ArrayList;
+ import java.util.Arrays;
+ import java.util.Calendar;
+@@ -51,21 +35,39 @@ import java.util.Map;
+ import java.util.TimeZone;
+ import java.util.concurrent.ThreadLocalRandom;
+ 
++import static junit.framework.TestCase.assertNotNull;
++import static org.junit.Assert.assertArrayEquals;
++import static org.junit.Assert.assertEquals;
++import static org.mockito.Mockito.*;
++
+ import io.confluent.connect.jdbc.sink.JdbcSinkConfig;
+ import io.confluent.connect.jdbc.sink.metadata.SinkRecordField;
++import io.confluent.connect.jdbc.source.ColumnMapping;
+ import io.confluent.connect.jdbc.source.JdbcSourceConnectorConfig;
++import io.confluent.connect.jdbc.util.ColumnDefinition;
++import io.confluent.connect.jdbc.util.ColumnDefinition.Mutability;
++import io.confluent.connect.jdbc.util.ColumnDefinition.Nullability;
+ import io.confluent.connect.jdbc.util.ColumnId;
+ import io.confluent.connect.jdbc.util.DateTimeUtils;
+ import io.confluent.connect.jdbc.util.QuoteMethod;
+ import io.confluent.connect.jdbc.util.TableId;
+-
+-import static junit.framework.TestCase.assertNotNull;
+-import static org.junit.Assert.assertArrayEquals;
+-import static org.junit.Assert.assertEquals;
+-import static org.mockito.Mockito.mock;
+-import static org.mockito.Mockito.times;
+-import static org.mockito.Mockito.verify;
+-import static org.mockito.Mockito.when;
++import io.debezium.data.geometry.Geography;
++import io.debezium.data.geometry.Geometry;
++import io.debezium.data.geometry.Point;
++import io.debezium.time.ZonedTime;
++import io.debezium.time.ZonedTimestamp;
++import org.apache.kafka.connect.data.Date;
++import org.apache.kafka.connect.data.Decimal;
++import org.apache.kafka.connect.data.Field;
++import org.apache.kafka.connect.data.Schema;
++import org.apache.kafka.connect.data.SchemaBuilder;
++import org.apache.kafka.connect.data.Struct;
++import org.apache.kafka.connect.data.Time;
++import org.apache.kafka.connect.data.Timestamp;
++import org.apache.kafka.connect.errors.ConnectException;
++import org.junit.After;
++import org.junit.Before;
++import org.junit.Test;
+ 
+ public abstract class BaseDialectTest<T extends GenericDatabaseDialect> {
+ 
+@@ -484,7 +486,12 @@ public abstract class BaseDialectTest<T extends GenericDatabaseDialect> {
+         Decimal.schema(0),
+         Date.SCHEMA,
+         Time.SCHEMA,
+-        Timestamp.SCHEMA
++        Timestamp.SCHEMA,
++        ZonedTime.schema(),
++        ZonedTimestamp.schema(),
++        Geometry.schema(),
++        Geography.schema(),
++        Point.schema()
+     );
+     int index = 0;
+     for (Schema schema : nullableTypes) {
+@@ -541,6 +548,15 @@ public abstract class BaseDialectTest<T extends GenericDatabaseDialect> {
+         case Timestamp.LOGICAL_NAME:
+           when(colDef.type()).thenReturn(Types.TIMESTAMP);
+           break;
++        case ZonedTime.SCHEMA_NAME:
++        case ZonedTimestamp.SCHEMA_NAME:
++          when(colDef.type()).thenReturn(Types.OTHER);
++          break;
++        case Geometry.LOGICAL_NAME:
++        case Geography.LOGICAL_NAME:
++        case Point.LOGICAL_NAME:
++          when(colDef.type()).thenReturn(Types.BLOB);
++          break;
+         default:
+           when(colDef.type()).thenThrow(
+               new UnsupportedOperationException(
+diff --git a/src/test/java/io/confluent/connect/jdbc/dialect/PostgreSqlDatabaseDialectTest.java b/src/test/java/io/confluent/connect/jdbc/dialect/PostgreSqlDatabaseDialectTest.java
+index c8e993b4..b075a2d2 100644
+--- a/src/test/java/io/confluent/connect/jdbc/dialect/PostgreSqlDatabaseDialectTest.java
++++ b/src/test/java/io/confluent/connect/jdbc/dialect/PostgreSqlDatabaseDialectTest.java
+@@ -16,12 +16,34 @@
+ package io.confluent.connect.jdbc.dialect;
+ 
+ import io.confluent.connect.jdbc.util.ColumnDefinition;
++import java.io.IOException;
++import java.sql.JDBCType;
++import java.sql.PreparedStatement;
++import java.sql.SQLException;
++import java.sql.Types;
++
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++import java.util.UUID;
++import java.util.concurrent.ThreadLocalRandom;
++
++import javax.xml.bind.DatatypeConverter;
++
++import static org.junit.Assert.assertEquals;
++import static org.mockito.Mockito.mock;
++
+ import io.confluent.connect.jdbc.util.ColumnId;
+ import io.confluent.connect.jdbc.util.QuoteMethod;
+ import io.confluent.connect.jdbc.util.TableDefinition;
+ import io.confluent.connect.jdbc.util.TableDefinitionBuilder;
+ import io.confluent.connect.jdbc.util.TableId;
+-
++import io.debezium.data.geometry.Geography;
++import io.debezium.data.geometry.Geometry;
++import io.debezium.data.geometry.Point;
++import io.debezium.time.ZonedTime;
++import io.debezium.time.ZonedTimestamp;
+ import org.apache.kafka.connect.data.Date;
+ import org.apache.kafka.connect.data.Decimal;
+ import org.apache.kafka.connect.data.Schema;
+@@ -32,28 +54,36 @@ import org.apache.kafka.connect.data.Timestamp;
+ import org.junit.Test;
+ 
+ import java.sql.Connection;
+-import java.sql.JDBCType;
+-import java.sql.PreparedStatement;
+ import java.sql.ResultSet;
+-import java.sql.SQLException;
+ import java.sql.Statement;
+-import java.sql.Types;
+-import java.util.ArrayList;
+-import java.util.Arrays;
+-import java.util.Collections;
+-import java.util.List;
+-import java.util.UUID;
+-import java.util.concurrent.ThreadLocalRandom;
+ 
+ import static org.junit.Assert.assertEquals;
+ import static org.mockito.Mockito.mock;
+ import static org.mockito.Mockito.when;
++import org.apache.kafka.connect.data.Struct;
++import org.apache.kafka.connect.data.Time;
++import org.apache.kafka.connect.data.Timestamp;
++import org.junit.Test;
+ 
+ public class PostgreSqlDatabaseDialectTest extends BaseDialectTest<PostgreSqlDatabaseDialect> {
+ 
++  // 'SRID=3187;POINT(174.9479 -36.7208)'::postgis.geometry
++  private static final Struct GEOMETRY_VALUE =
++          Geometry.createValue(Geometry.schema(),
++                  DatatypeConverter.parseHexBinary(
++                          "0101000020730C00001C7C613255DE6540787AA52C435C42C0"),
++                  3187);
++  // 'MULTILINESTRING((169.1321 -44.7032, 167.8974 -44.6414))'::postgis.geography
++  private static final Struct GEOGRAPHY_VALUE =
++          Geography.createValue(Geography.schema(),
++                  DatatypeConverter.parseHexBinary(
++                          "0105000020E610000001000000010200000002000000A779C7293A2465400B462575025A46C0C66D3480B7FC6440C3D32B65195246C0"),
++                  4326);
++  private static final Struct POINT_VALUE = Point.createValue(Point.builder().build(), 1, 1);
++
+   @Override
+   protected PostgreSqlDatabaseDialect createDialect() {
+-    return new PostgreSqlDatabaseDialect(sourceConfigWithUrl("jdbc:postgresql://something"));
++    return new PostgreSqlDatabaseDialect(sourceConfigWithUrl("jdbc:postgresql://something/"));
+   }
+ 
+   @Test
+@@ -99,6 +129,12 @@ public class PostgreSqlDatabaseDialectTest extends BaseDialectTest<PostgreSqlDat
+     verifyDataTypeMapping("DATE", Date.SCHEMA);
+     verifyDataTypeMapping("TIME", Time.SCHEMA);
+     verifyDataTypeMapping("TIMESTAMP", Timestamp.SCHEMA);
++    verifyDataTypeMapping("TIMETZ", ZonedTime.schema());
++    verifyDataTypeMapping("TIMESTAMPTZ", ZonedTimestamp.schema());
++    verifyDataTypeMapping("GEOMETRY", Geometry.schema());
++    // Geography is also derived from Geometry
++    verifyDataTypeMapping("GEOMETRY", Geography.schema());
++    verifyDataTypeMapping("GEOMETRY", Point.schema());
+   }
+ 
+   @Test
+@@ -116,6 +152,13 @@ public class PostgreSqlDatabaseDialectTest extends BaseDialectTest<PostgreSqlDat
+     assertTimestampMapping("TIMESTAMP");
+   }
+ 
++  @Test
++  public void shouldMapGeometryTypeToPostGisTypes() {
++    assertMapping("GEOMETRY", Geometry.schema());
++    assertMapping("GEOMETRY", Geography.schema());
++    assertMapping("GEOMETRY", Point.schema());
++  }
++
+   @Test
+   public void shouldBuildCreateQueryStatement() {
+     assertEquals(
+@@ -427,6 +470,31 @@ public class PostgreSqlDatabaseDialectTest extends BaseDialectTest<PostgreSqlDat
+       // Overridden simply to dummy out the test.
+   }
+ 
++  @Test
++  public void bindFieldZonedTimeValue() throws SQLException {
++    int index = ThreadLocalRandom.current().nextInt();
++    String value = "10:15:30+01:00";
++    super.verifyBindField(++index, ZonedTime.schema(), value).setObject(index, value, Types.OTHER);
++  }
++
++  @Test
++  public void bindFieldZonedTimestampValue() throws SQLException {
++    int index = ThreadLocalRandom.current().nextInt();
++    String value = "2021-05-01T18:00:00.030431+02:00";
++    super.verifyBindField(++index, ZonedTimestamp.schema(), value).setObject(index, value, Types.OTHER);
++  }
++
++  @Test
++  public void bindFieldPostGisValues() throws SQLException, IOException {
++    int index = ThreadLocalRandom.current().nextInt();
++    super.verifyBindField(++index, Geometry.schema(), GEOMETRY_VALUE)
++            .setBytes(index, GEOMETRY_VALUE.getBytes(Geometry.WKB_FIELD));
++    super.verifyBindField(++index, Geography.schema(), GEOGRAPHY_VALUE)
++            .setBytes(index, GEOGRAPHY_VALUE.getBytes(Geometry.WKB_FIELD));
++    super.verifyBindField(++index, Geometry.schema(), POINT_VALUE)
++            .setBytes(index, POINT_VALUE.getBytes(Geometry.WKB_FIELD));
++  }
++
+   @Test
+   public void bindFieldPrimitiveValues() throws SQLException {
+     PreparedStatement statement = mock(PreparedStatement.class);
+-- 
+2.43.0
+
