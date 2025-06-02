@@ -6,7 +6,8 @@ VALID_FLOWS = {
     "historic": "raw_historic",
     "lastdata": "raw_lastdata",
     "mutable": "raw_mutable",
-    "errors": "errors"
+    "errors": "errors",
+    "mongo": "raw_mongo",
 }
 
 def send_notification():

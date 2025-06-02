@@ -24,6 +24,7 @@ raw_historic_topic = app.topic('raw_historic')
 raw_lastdata_topic = app.topic('raw_lastdata')
 raw_mutable_topic = app.topic('raw_mutable')
 errors_topic = app.topic('postgis_errors')
+mongo_topic = app.topic('raw_mongo')
 
 
 def to_wkb_struct_from_wkt(wkt_str, field_name, srid=4326):
@@ -293,6 +294,9 @@ async def handle_entity(raw_value, suffix="", include_timeinstant=True):
 # Historic Agent
 @app.agent(raw_historic_topic)
 async def process_historic(stream):
+    """
+    (...)
+    """
     async for raw_value in stream:
         try:
             await handle_entity(raw_value, suffix="", include_timeinstant=True)
@@ -311,6 +315,9 @@ last_seen_timestamps = app.Table(
 # Lastdata Agent
 @app.agent(raw_lastdata_topic)
 async def process_lastdata(stream):
+    """
+    (...)
+    """
     async for raw_value in stream:
         try:
             event = json.loads(raw_value)
@@ -373,6 +380,9 @@ async def process_lastdata(stream):
 # Mutable Agent
 @app.agent(raw_mutable_topic)
 async def process_mutable(stream):
+    """
+    (...)
+    """
     async for raw_value in stream:
         try:
             await handle_entity(raw_value, suffix="_mutable", include_timeinstant=True)
@@ -383,6 +393,9 @@ async def process_mutable(stream):
 # Errors Agent
 @app.agent(errors_topic)
 async def process_errors(stream):
+    """
+    (...)
+    """
     async for message in stream.events():
         headers = {k: v.decode("utf-8") for k, v in (message.message.headers or [])}
         value_raw = message.value
@@ -468,3 +481,66 @@ async def process_errors(stream):
         await error_topic.send(value=error_record)
 
         print(f"🐞 Logged SQL error to '{error_topic_name}': {error_message}")
+
+def encode_mongo(value: str) -> str:
+    if value == '/':
+        return 'x002f'
+    value = value.replace('/', 'x002f')
+    value = value.replace('.', 'x002e')
+    value = value.replace('$', 'x0024')
+    value = value.replace('"', 'x0022')
+    value = value.replace('=', 'xffff')
+    return value
+
+
+mongo_output_topic = app.topic('alcobendas_mongo')
+@app.agent(mongo_topic)
+async def process(events):
+    """
+    (...)
+    """
+    async for raw in events:
+        try:
+            data = json.loads(raw)
+
+            headers = data.get("headers", {})
+            body = data.get("body", {})
+            attributes = body.get("attributes", [])
+
+            fiware_service = headers.get("fiware-service", "default")
+            service_path = headers.get("fiware-servicepath", "/")
+
+            # Encode database and collection
+            mongo_db = f"sth_{encode_mongo(fiware_service)}"
+            mongo_collection = f"sth_{encode_mongo(service_path)}"
+
+            timestamp = int(headers.get("timestamp", datetime.now().timestamp()))
+            recv_time_ts = str(timestamp * 1000)
+            recv_time = datetime.utcfromtimestamp(timestamp).replace(tzinfo=timezone.utc).isoformat()
+
+            # Document to be inserted
+            doc = {
+                "recvTimeTs": recv_time_ts,
+                "recvTime": recv_time,
+                "entityId": body.get("entityId"),
+                "entityType": body.get("entityType")
+            }
+
+            for attr in attributes:
+                name = attr.get("attrName")
+                value = attr.get("attrValue")
+                doc[name] = value
+
+            # Send to Kafka with key for routing
+            await mongo_output_topic.send(
+                key=json.dumps({
+                    "database": mongo_db,
+                    "collection": mongo_collection
+                }),
+                value=json.dumps(doc)
+            )
+
+            print(f"✅ ['mongo'] Sent to topic 'alcobendas_mongo' | DB: {mongo_db}, Collection: {mongo_collection}")
+
+        except Exception as e:
+            print("❌ Error processing event:", e)

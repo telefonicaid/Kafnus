@@ -1,0 +1,17 @@
+{
+  "flow": "mongo",
+  "headers": {
+        "fiware-service": "vehicles",
+        "fiware-servicepath": "/4wheels"
+    },
+    "body": {
+        "entityId": "car1",
+        "entityType": "car",
+        "attributes": [
+            {"attrName": "speed", "attrType": "float", "attrValue": 112.9},
+            {"attrName": "oil_level", "attrType": "float", "attrValue": 74.6}
+        ]
+    }
+}
+
+
