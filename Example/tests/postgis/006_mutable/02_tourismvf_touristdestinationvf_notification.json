@@ -1,0 +1,38 @@
+{
+  "flow": "mutable",
+  "headers": {
+    "fiware-service": "alcobendas",
+    "fiware-servicepath": "/tourismvf"
+  },
+  "body": {
+    "entityId": "VF_44047_NA",
+    "entityType": "TouristDestinationVF",
+    "attributes": [
+      { "attrName": "timeinstant", "attrValue": "2025-06-03T02:00:00.000Z" },
+      { "attrName": "day", "attrValue": "31" },
+      { "attrName": "year", "attrValue": 2023 },
+      { "attrName": "month", "attrValue": 12 },
+      { "attrName": "period", "attrValue": "daily" },
+      { "attrName": "municipalitydestiny", "attrValue": "X" },
+      { "attrName": "municipalitydestinyid", "attrValue": "04013" },
+      { "attrName": "numberofrow", "attrValue": 44047 },
+      { "attrName": "origintype", "attrValue": "regional" },
+      { "attrName": "origin", "attrValue": "NA" },
+      { "attrName": "originid", "attrValue": "NA" },
+      { "attrName": "origincategory", "attrValue": "NA" },
+      { "attrName": "destiny", "attrValue": "0401307037" },
+      { "attrName": "destinyid", "attrValue": "0401307037" },
+      { "attrName": "destinycategory", "attrValue": "1" },
+      { "attrName": "timesection", "attrValue": "Evening" },
+      { "attrName": "visitortype", "attrValue": "tourist" },
+      { "attrName": "age", "attrValue": "NA" },
+      { "attrName": "gender", "attrValue": "NA" },
+      { "attrName": "purchasingpower", "attrValue": "NA" },
+      { "attrName": "worker", "attrValue": "NA" },
+      { "attrName": "overnights", "attrValue": "NA" },
+      { "attrName": "visitors", "attrValue": 623 },
+      { "attrName": "source", "attrValue": "VF" },
+      { "attrName": "municipality", "attrValue": "NA" }
+    ]
+  }
+}

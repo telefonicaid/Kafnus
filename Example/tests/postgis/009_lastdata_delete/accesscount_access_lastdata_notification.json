@@ -9,8 +9,8 @@
     "entityType": "Access",
     "attributes": [
       { "attrName": "timeinstant", "attrValue": "2025-05-02T09:35:00Z" },
-      { "attrName": "name", "attrValue": "Ayuntamiento de Lorca" },
-      { "attrName": "description", "attrValue": "Ayuntamiento de Lorca" },
+      { "attrName": "name", "attrValue": "Ayuntamiento X" },
+      { "attrName": "description", "attrValue": "Ayuntamiento X" },
       { "attrName": "period", "attrValue": 60.0 },
       { "attrName": "category", "attrValue": "barrera" },
       { "attrName": "numberofincoming", "attrValue": 67 },

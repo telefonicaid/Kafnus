@@ -6,7 +6,8 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 TESTS_DIR = CURRENT_DIR
 
 def run_tests():
-    for root, _, files in os.walk(TESTS_DIR):
+    for root, dirs, files in sorted(os.walk(TESTS_DIR), key=lambda x: x[0]):
+        files = sorted(files)
         # Group by notification and expected
         notifications = [f for f in files if f.endswith("_notification.json")]
         expecteds = [f for f in files if f.endswith("_expected.json")]
@@ -19,7 +20,7 @@ def run_tests():
         for notif_file in notifications:
             notif_path = os.path.join(root, notif_file)
             print(f"📤 Sending notification: {notif_path}")
-            subprocess.run(["python3", "producer.py", notif_path], check=True)
+            subprocess.run(["python3", "../producer.py", notif_path], check=True)
 
         # Wait between send and check
         time.sleep(1)

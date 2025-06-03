@@ -206,13 +206,17 @@ def to_kafka_connect_schema(entity: dict, schema_overrides: dict = None):
     }
 
 
-def build_kafka_key(entity: dict, include_timeinstant=False):
+def build_kafka_key(entity: dict, key_fields: list, include_timeinstant=False):
     """
-    Builds the Kafka message key with schema, including entityid and optionally timeinstant.
+    Builds the Kafka message key with schema based on key_fields and optionally timeinstant.
     This key is used for Kafka Connect upsert mode or primary key definition.
     """
-    fields = [{"field": "entityid", "type": "string", "optional": False}]
-    payload = {"entityid": entity.get("entityid")}
+    fields = []
+    payload = {}
+
+    for key in key_fields:
+        fields.append({"field": key, "type": "string", "optional": False})
+        payload[key] = entity.get(key)
 
     if include_timeinstant:
         fields.append({"field": "timeinstant", "type": "string", "optional": False})
@@ -228,13 +232,11 @@ def build_kafka_key(entity: dict, include_timeinstant=False):
     }).encode("utf-8")
 
 
-async def handle_entity(raw_value, suffix="", include_timeinstant=True):
+async def handle_entity(raw_value, suffix="", include_timeinstant=True, key_fields=None):
     """
-    Logic for Faust agents, consumes raw NGSI notifications, processes and transforms
-    them into Kafka Connect schema format, and sends to appropriate output topics.
-    Supports handling geo attributes and dynamic topic naming based on message headers.
+    Consumes raw NGSI notifications, processes and transforms them into Kafka Connect format.
+    key_fields allows configuring which fields to use as primary key for upsert.
     """
-    
     event = json.loads(raw_value)
     headers = event.get("headers", {})
     body = event.get("body", {})
@@ -279,8 +281,12 @@ async def handle_entity(raw_value, suffix="", include_timeinstant=True):
         attributes[name] = value
 
     entity.update(attributes)
+
+    if key_fields is None:
+        key_fields = ["entityid"]
+
     kafka_message = to_kafka_connect_schema(entity, schema_overrides)
-    kafka_key = build_kafka_key(entity, include_timeinstant=include_timeinstant)
+    kafka_key = build_kafka_key(entity, key_fields=key_fields, include_timeinstant=include_timeinstant)
 
     await output_topic.send(
         key=kafka_key,
@@ -288,18 +294,20 @@ async def handle_entity(raw_value, suffix="", include_timeinstant=True):
         headers=[("target_table", target_table.encode())]
     )
 
-    print(f"✅ [{suffix.lstrip('_') or 'historic'}] Sent to topic '{topic_name}' (table: '{target_table}'): {entity['entityid']}")
+    print(f"✅ [{suffix.lstrip('_') or 'historic'}] Sent to topic '{topic_name}' (table: '{target_table}'): {entity.get('entityid')}")
 
 
 # Historic Agent
 @app.agent(raw_historic_topic)
 async def process_historic(stream):
     """
-    (...)
+    Consumes raw NGSI notifications from the 'raw_historic' topic and processes them as historic records.
+    Each message is transformed to Kafka Connect format and forwarded to the corresponding output topic.
+    Primary key includes entity ID and TimeInstant for proper versioning of historical data.
     """
     async for raw_value in stream:
         try:
-            await handle_entity(raw_value, suffix="", include_timeinstant=True)
+            await handle_entity(raw_value, suffix="", include_timeinstant=True, key_fields=["entityid"])
         except Exception as e:
             print(f"❌ Historic error: {e}")
 
@@ -316,7 +324,9 @@ last_seen_timestamps = app.Table(
 @app.agent(raw_lastdata_topic)
 async def process_lastdata(stream):
     """
-    (...)
+    Consumes NGSI notifications from the 'raw_lastdata' topic and stores the latest timestamp of each entity.
+    If the notification timestamp is more recent than the previously seen one, the entity is updated.
+    Handles deletion events explicitly by sending a null value with the proper key to trigger deletion in the sink.
     """
     async for raw_value in stream:
         try:
@@ -369,7 +379,7 @@ async def process_lastdata(stream):
 
             if current_ts >= last_ts:
                 last_seen_timestamps[entity_id] = current_ts
-                await handle_entity(raw_value, suffix="_lastdata", include_timeinstant=False)
+                await handle_entity(raw_value, suffix="_lastdata", include_timeinstant=False, key_fields=["entityid"])
             else:
                 print(f"⚠️ Ignorado {entity_id} por timestamp viejo ({current_ts} < {last_ts})")
 
@@ -381,11 +391,12 @@ async def process_lastdata(stream):
 @app.agent(raw_mutable_topic)
 async def process_mutable(stream):
     """
-    (...)
+    Consumes NGSI notifications from the 'raw_mutable' topic and stores them as mutable records.
+    Includes TimeInstant in the primary key.
     """
     async for raw_value in stream:
         try:
-            await handle_entity(raw_value, suffix="_mutable", include_timeinstant=True)
+            await handle_entity(raw_value, suffix="_mutable", include_timeinstant=True, key_fields=["entityid"])
         except Exception as e:
             print(f"❌ Mutable error: {e}")
 
@@ -394,7 +405,9 @@ async def process_mutable(stream):
 @app.agent(errors_topic)
 async def process_errors(stream):
     """
-    (...)
+    Processes Kafka Connect error messages from the 'postgis_errors' topic.
+    Parses failed inserts or connector issues, extracts the relevant SQL error message and context,
+    and emits a structured error log message to a per-tenant error topic (e.g., 'clientname_error_log').
     """
     async for message in stream.events():
         headers = {k: v.decode("utf-8") for k, v in (message.message.headers or [])}
@@ -414,10 +427,13 @@ async def process_errors(stream):
         
         # Get database name
         db_name = headers.get("__connect.errors.topic", "")
-        if db_name=="":
+        if db_name == "":
             db_name_match = re.search(r'INSERT INTO "([^"]+)"', full_error_msg)
             if db_name_match:
                 db_name = db_name_match.group(1).split('.')[0]
+
+        # Remove unwanted suffixes
+        db_name = re.sub(r'_(lastdata|mutable)$', '', db_name)
 
         # Get name of output topic
         error_topic_name = f"{db_name}_error_log"
@@ -427,12 +443,13 @@ async def process_errors(stream):
         error_match = re.search(r'(ERROR: .+?)(\n|$)', full_error_msg)
         if error_match:
             error_message = error_match.group(1).strip()
-            # Include Details if present
+
+            # Add details if present
             detail_match = re.search(r'(Detail: .+?)(\n|$)', full_error_msg)
             if detail_match:
                 error_message += f" - {detail_match.group(1).strip()}"
         else:
-            error_message = "Unknown SQL error"
+            error_message = full_error_msg
 
         # Extract query if aviable
         query_match = re.search(r'(INSERT INTO "[^"]+"[^)]+\)[^)]*\))', full_error_msg)
@@ -497,7 +514,9 @@ mongo_output_topic = app.topic('alcobendas_mongo')
 @app.agent(mongo_topic)
 async def process(events):
     """
-    (...)
+    Consumes NGSI notifications from the 'raw_mongo' topic and transforms them into MongoDB-compatible documents.
+    Encodes Fiware service and service path to match MongoDB naming restrictions.
+    Each message is enriched with reception timestamp and entity metadata before being published to the output topic.
     """
     async for raw in events:
         try:
