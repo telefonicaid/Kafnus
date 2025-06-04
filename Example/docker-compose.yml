@@ -50,8 +50,15 @@ services:
       CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "true"
       CONNECT_PLUGIN_PATH: "/etc/kafka-connect/plugins"
       CONNECT_REST_ADVERTISED_HOST_NAME: localhost
+      # For monitoring
+      KAFKA_JMX_PORT: 9100
+      JMX_PROMETHEUS_PORT: 9100
+      JMX_PROMETHEUS_EXPORTER_OPTS: "-javaagent:/usr/share/jmx_exporter/jmx_prometheus_javaagent.jar=9100:/usr/share/jmx_exporter/kafka-connect.yml"
     volumes:
       - ./plugins:/etc/kafka-connect/plugins
+      # Monitoring
+      - ./monitoring/jmx_prometheus_javaagent.jar:/usr/share/jmx_exporter/jmx_prometheus_javaagent.jar
+      - ./monitoring/kafka-connect.yml:/usr/share/jmx_exporter/kafka-connect.yml
     depends_on:
       - kafka
     networks:

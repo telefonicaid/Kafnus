@@ -4,3 +4,4 @@ own-jdbc-connector/kafka-connect-jdbc/target
 *.jar
 **/target/
 Example/tests/kafka-fiware-env
+Example/monitoring/grafana

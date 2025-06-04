@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y gcc build-essential
 # Copy requirements and code
 COPY requirements.txt .
 COPY stream_processor.py .
+COPY metrics.py .
 
 # Install dependencies
 RUN pip install --upgrade pip && pip install -r requirements.txt

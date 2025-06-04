@@ -8,7 +8,10 @@ from shapely import wkt
 from shapely.geometry import shape # https://shapely.readthedocs.io/en/stable/manual.html#shapely.geometry.shape
 import binascii
 import base64
+import time
 import asyncio
+
+from metrics import start_metrics_server, messages_processed, processing_time
 
 
 app = faust.App(
@@ -17,6 +20,9 @@ app = faust.App(
     value_serializer='raw',
     topic_allow_declare=True
 )
+
+# Used in Prometheus service
+start_metrics_server(port=8000)
 
 # Input Kafka topics to consume raw NGSI notifications
 # Separate topic for different flows or table type
@@ -306,10 +312,15 @@ async def process_historic(stream):
     Primary key includes entity ID and TimeInstant for proper versioning of historical data.
     """
     async for raw_value in stream:
+        start = time.time()
         try:
             await handle_entity(raw_value, suffix="", include_timeinstant=True, key_fields=["entityid"])
         except Exception as e:
             print(f"❌ Historic error: {e}")
+        
+        duration = time.time() - start
+        messages_processed.labels(flow="historic").inc()
+        processing_time.labels(flow="historic").set(duration)
 
 
 # Table of last timeinstant for entity
@@ -329,6 +340,7 @@ async def process_lastdata(stream):
     Handles deletion events explicitly by sending a null value with the proper key to trigger deletion in the sink.
     """
     async for raw_value in stream:
+        start = time.time()
         try:
             event = json.loads(raw_value)
             body = event.get("body", {})
@@ -385,6 +397,10 @@ async def process_lastdata(stream):
 
         except Exception as e:
             print(f"❌ Lastdata error: {e}")
+        
+        duration = time.time() - start
+        messages_processed.labels(flow="lastdata").inc()
+        processing_time.labels(flow="lastdata").set(duration)
 
 
 # Mutable Agent
@@ -395,10 +411,15 @@ async def process_mutable(stream):
     Includes TimeInstant in the primary key.
     """
     async for raw_value in stream:
+        start = time.time()
         try:
             await handle_entity(raw_value, suffix="_mutable", include_timeinstant=True, key_fields=["entityid"])
         except Exception as e:
             print(f"❌ Mutable error: {e}")
+        
+        duration = time.time() - start
+        messages_processed.labels(flow="mutable").inc()
+        processing_time.labels(flow="mutable").set(duration)
 
 
 # Errors Agent
@@ -410,6 +431,8 @@ async def process_errors(stream):
     and emits a structured error log message to a per-tenant error topic (e.g., 'clientname_error_log').
     """
     async for message in stream.events():
+        start = time.time()
+
         headers = {k: v.decode("utf-8") for k, v in (message.message.headers or [])}
         value_raw = message.value
 
@@ -499,6 +522,10 @@ async def process_errors(stream):
 
         print(f"🐞 Logged SQL error to '{error_topic_name}': {error_message}")
 
+        duration = time.time() - start
+        messages_processed.labels(flow="errors").inc()
+        processing_time.labels(flow="errors").set(duration)
+
 def encode_mongo(value: str) -> str:
     if value == '/':
         return 'x002f'
@@ -519,6 +546,7 @@ async def process(events):
     Each message is enriched with reception timestamp and entity metadata before being published to the output topic.
     """
     async for raw in events:
+        start = time.time()
         try:
             data = json.loads(raw)
 
@@ -563,3 +591,7 @@ async def process(events):
 
         except Exception as e:
             print("❌ Error processing event:", e)
+        
+        duration = time.time() - start
+        messages_processed.labels(flow="mongo").inc()
+        processing_time.labels(flow="mongo").set(duration)
