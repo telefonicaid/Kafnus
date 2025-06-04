@@ -1,0 +1,98 @@
+iot-kafka:
+  container_name: iot-kafka
+  hostname: iot-kafka
+  restart: "unless-stopped"
+  image: confluentinc/cp-kafka:7.9.1
+  ports:
+    - "9092:9092"
+    - "29092:29092"
+    - "29093:29093"
+  environment:
+    - KAFKA_PROCESS_ROLES=controller,broker
+    - KAFKA_NODE_ID=1
+    - CLUSTER_ID=kafka-docker-cluster-1
+    - KAFKA_CONTROLLER_QUORUM_VOTERS=1@iot-kafka:29093
+    - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://iot-kafka:29093
+    - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092,PLAINTEXT_HOST://iot-kafka:29092
+    - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+    - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+    - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER    
+    - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+  log_driver: json-file
+  log_opt:
+    max-size: "250m"
+
+iot-kafka-topics:
+  container_name: iot-kafka-topics
+  hostname: iot-kafka-topics
+  restart: "unless-stopped"
+  image: confluentinc/cp-kafka:7.9.1
+  links:
+    - iot-kafka  
+  command: bash -c "
+        kafka-topics --bootstrap-server iot-kafka:29092 --create --if-not-exists --topic raw_historic --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_historic created or already created.'
+        kafka-topics --bootstrap-server iot-kafka:29092 --create --if-not-exists --topic raw_lastdata --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_lastdata created or already created.'
+        kafka-topics --bootstrap-server iot-kafka:29092 --create --if-not-exists --topic raw_mutable --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_mutable created or already created.'
+        kafka-topics --bootstrap-server iot-kafka:29092 --create --if-not-exists --topic postgis_errors --partitions 1 --replication-factor 1 &&
+        echo 'Topic postgis_errors created or already created.'
+        kafka-topics --bootstrap-server iot-kafka:29092 --create --if-not-exists --topic ngsi-processor-lastdata_entity_timeinstant-changelog --partitions 1 --replication-factor 1 &&
+        echo 'Topic ngsi-processor-lastdata_entity_timeinstant-changelog created or already created.'
+        kafka-topics --bootstrap-server iot-kafka:29092 --create --if-not-exists --topic raw_mongo --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_mongo created or already created.'
+      "
+  log_driver: json-file
+  log_opt:
+    max-size: "250m"
+
+iot-kafka-connect:
+  container_name: iot-kafka-connect
+  hostname: iot-kafka-connect
+  restart: "unless-stopped"
+  image: confluentinc/cp-kafka-connect:7.9.1
+  ports:
+    - "8083:8083"
+  links:
+    - iot-kafka
+    - iot-postgis
+    - iot-mongo
+  environment:
+    - CONNECT_BOOTSTRAP_SERVERS=iot-kafka:29092
+    - CONNECT_REST_ADVERTISED_HOST_NAME=localhost
+    - CONNECT_REST_PORT=8083
+    - CONNECT_GROUP_ID=connect-cluster
+    - CONNECT_CONFIG_STORAGE_TOPIC=connect-configs
+    - CONNECT_OFFSET_STORAGE_TOPIC=connect-offsets
+    - CONNECT_STATUS_STORAGE_TOPIC=connect-status
+    - CONNECT_REPLICATION_FACTOR=1
+    - CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR=1
+    - CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR=1
+    - CONNECT_STATUS_STORAGE_REPLICATION_FACTOR=1
+    - CONNECT_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+    - CONNECT_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+    - CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE=false
+    - CONNECT_PLUGIN_PATH=/etc/kafka-connect/plugins
+    - CONNECT_LOG4J_ROOT_LOGLEVEL=INFO
+    - CONNECT_LOG4J_LOGGERS=org.apache.kafka.connect.runtime.WorkerSinkTask=DEBUG
+    #log4j.logger.org.apache.kafka.connect.runtime.WorkerSourceTask=DEBUG
+  volumes:
+    - ${PATH_KAFKA_CONF}/plugins:/etc/kafka-connect/plugins
+  # curl -i -X POST -H "Content-Type: application/json" -d @./pg-sink.json http://localhost:8083/connectors
+  log_driver: json-file
+  log_opt:
+    max-size: "250m"   
+
+iot-kafka-stream:
+  container_name: iot-kafka-stream
+  hostname: iot-kafka-stream
+  restart: "unless-stopped"
+  build: ../kafnus/Example
+  links:
+    - iot-kafka
+  environment:
+    - FAUST_BROKER=kafka://iot-kafka:29092
+  log_driver: json-file
+  log_opt:
+    max-size: "250m"   
