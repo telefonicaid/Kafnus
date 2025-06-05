@@ -1,0 +1,39 @@
+{
+  "flow": "lastdata",
+  "headers": {
+    "fiware-service": "alcobendas",
+    "fiware-servicepath": "/routes"
+  },
+  "body": {
+    "entityId": "STOP-001",
+    "entityType": "Stop",
+    "attributes": [
+      { "attrName": "timeinstant", "attrValue": "2025-05-16T07:45.000Z" },
+      {
+        "attrName": "location",
+        "attrType": "geo:json",
+        "attrValue": {
+          "type": "Point",
+          "coordinates": [-3.639408946, 40.54106925]
+        }
+      },
+      { "attrName": "name", "attrValue": "Parada 64" },
+      { "attrName": "zip", "attrValue": "NA" },
+      { "attrName": "zone", "attrValue": "NA" },
+      { "attrName": "district", "attrValue": "NA" },
+      { "attrName": "municipality", "attrValue": "NA" },
+      { "attrName": "province", "attrValue": "NA" },
+      { "attrName": "region", "attrValue": "NA" },
+      { "attrName": "community", "attrValue": "NA" },
+      { "attrName": "country", "attrValue": "NA" },
+      { "attrName": "streetaddress", "attrValue": "Carretera CL 615, km. 55" },
+      { "attrName": "postalcode", "attrValue": "NA" },
+      { "attrName": "addresslocality", "attrValue": "NA" },
+      { "attrName": "addressregion", "attrValue": "NA" },
+      { "attrName": "addresscommunity", "attrValue": "NA" },
+      { "attrName": "addresscountry", "attrValue": "NA" },
+      { "attrName": "entityid", "attrValue": "STOP-001" },
+      { "attrName": "entitytype", "attrValue": "Stop" }
+    ]
+  }
+}

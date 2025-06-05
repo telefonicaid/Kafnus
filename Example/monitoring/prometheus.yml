@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka-connect-exporter:9308']
+  - job_name: 'faust'
+    static_configs:
+      - targets: ['faust-stream:8000']
+  - job_name: 'kafka-connect'
+    static_configs:
+      - targets: ['kafka-connect:9100']
+
+

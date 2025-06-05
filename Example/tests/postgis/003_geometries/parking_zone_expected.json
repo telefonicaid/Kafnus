@@ -1,0 +1,33 @@
+{
+  "connection": {
+    "host": "localhost",
+    "port": 5432,
+    "dbname": "alcobendas",
+    "user": "postgres",
+    "password": "postgres"
+  },
+  "table": "alcobendas.parking_zone",
+  "conditions": [
+    {
+      "entityid": "PZ-123",
+      "entitytype": "zone",
+      "fiwareservicepath": "/parking",
+      "name": "Zona Centro",
+      "timeinstant": "2025-05-15T12:00:00Z",
+      "location": "POINT (-3.7038 40.4168)",
+      "polygon": "POLYGON ((-3.704 40.4168, -3.703 40.4175, -3.702 40.4162, -3.704 40.4168))",
+      "district": "Centro",
+      "municipality": "Madrid",
+      "province": "Madrid",
+      "region": "Madrid",
+      "community": "Madrid",
+      "country": "España",
+      "streetaddress": "Calle Arenal 5",
+      "postalcode": "28013",
+      "addresslocality": "Madrid",
+      "addressregion": "Madrid",
+      "addresscommunity": "Madrid",
+      "addresscountry": "España"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "flow": "historic",
+  "headers": {
+    "fiware-service": "alcobendas",
+    "fiware-servicepath": "/parking"
+  },
+  "body": {
+    "entityId": "PZ-123",
+    "entityType": "zone",
+    "attributes": [
+      {
+        "attrName": "name",
+        "attrValue": "Zona Centro"
+      },
+      {"attrName": "timeinstant", "attrValue": "2025-05-15T12:00:00Z"},
+      {
+        "attrName": "location",
+        "attrType": "geo:point",
+        "attrValue": "40.4168,-3.7038"
+      },
+      {
+        "attrName": "polygon",
+        "attrType": "geo:polygon",
+        "attrValue": [
+          "40.4168,-3.7040",
+          "40.4175,-3.7030",
+          "40.4162,-3.7020",
+          "40.4168,-3.7040"
+        ]
+      },
+      { "attrName": "district", "attrValue": "Centro" },
+      { "attrName": "municipality", "attrValue": "Madrid" },
+      { "attrName": "province", "attrValue": "Madrid" },
+      { "attrName": "region", "attrValue": "Madrid" },
+      { "attrName": "community", "attrValue": "Madrid" },
+      { "attrName": "country", "attrValue": "España" },
+      { "attrName": "streetaddress", "attrValue": "Calle Arenal 5" },
+      { "attrName": "postalcode", "attrValue": "28013" },
+      { "attrName": "addresslocality", "attrValue": "Madrid" },
+      { "attrName": "addressregion", "attrValue": "Madrid" },
+      { "attrName": "addresscommunity", "attrValue": "Madrid" },
+      { "attrName": "addresscountry", "attrValue": "España" }
+    ]
+  }
+}

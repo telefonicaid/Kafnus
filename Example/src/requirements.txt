@@ -1,0 +1,5 @@
+faust==1.10.4
+robinhood-aiokafka==1.1.6
+pytz==2025.2
+shapely==2.0.7
+prometheus_client==0.22.1

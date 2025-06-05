@@ -1,0 +1,89 @@
+services:
+  create-topics:
+    image: confluentinc/cp-kafka:7.9.0
+    container_name: create-topics
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic raw_historic --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_historic created or already created.'
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic raw_lastdata --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_lastdata created or already created.'
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ngsi-processor-lastdata_entity_timeinstant-changelog --partitions 1 --replication-factor 1 &&
+        echo 'Topic ngsi-processor-lastdata_entity_timeinstant-changelog created or already created.'
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic raw_mutable --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_mutable created or already created.'
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic postgis_errors --partitions 1 --replication-factor 1 &&
+        echo 'Topic postgis_errors created or already created.'
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic raw_mongo --partitions 1 --replication-factor 1 &&
+        echo 'Topic raw_mongo created or already created.'
+      "
+    networks:
+      - kafka-postgis-net
+      
+  faust-stream:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: faust-stream
+    depends_on:
+      kafka:
+        condition: service_healthy
+      create-topics:
+        condition: service_completed_successfully
+    environment:
+      - FAUST_BROKER=kafka://kafka:9092
+    networks:
+      - kafka-postgis-net
+    ports:
+      - "6066:6066"  # Faust web
+      # Monitoring
+      - "8000:8000"  # Prometheus
+    command: faust -A stream_processor worker -l info
+
+  # Monitoring
+  kafka-connect-exporter:
+    image: danielqsj/kafka-exporter
+    container_name: kafka-connect-exporter
+    depends_on:
+      kafka-connect:
+        condition: service_healthy
+    ports:
+      - "9308:9308"
+    environment:
+      - KAFKA_SERVER=kafka:9092
+    networks:
+      - kafka-postgis-net
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - kafka-postgis-net
+    depends_on:
+      - kafka-connect-exporter
+
+  # Monitoring
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../monitoring/grafana:/var/lib/grafana
+    networks:
+      - kafka-postgis-net
+    depends_on:
+      - prometheus
+
+networks:
+  kafka-postgis-net:
+    external: true
+

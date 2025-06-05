@@ -1,0 +1,16 @@
+{
+  "flow": "lastdata",
+  "headers": {
+    "fiware-service": "alcobendas",
+    "fiware-servicepath": "/accesscount"
+  },
+  "body": {
+    "entityId": "NPO-104",
+    "entityType": "Access",
+    "attributes": [
+      { "attrName": "name", "attrValue": "Ayuntamiento X" },
+      { "attrName": "timeinstant", "attrValue": "2025-05-17T08:46:00.000Z" },
+      { "attrName": "streetaddress", "attrValue": "Direccion X" }
+    ]
+  }
+}

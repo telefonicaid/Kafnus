@@ -1,0 +1,20 @@
+{
+  "flow": "lastdata",
+  "headers": {
+    "fiware-service": "alcobendas",
+    "fiware-servicepath": "/test_accesscount"
+  },
+  "body": {
+    "entityId": "NPO-101",
+    "entityType": "Access",
+    "attributes": [
+      { "attrName": "timeinstant", "attrValue": "2025-05-02T12:00:00Z" },
+      { "attrName": "numberofincoming", "attrValue": 3 },
+      { "attrName": "numberofoutgoing", "attrValue": 3 },
+      { "attrName": "status", "attrValue": "abierto" },
+      { "attrName": "averagestay", "attrValue": 3 },
+      { "attrName": "entityid", "attrValue": "NPO-101" },
+      { "attrName": "entitytype", "attrValue": "Access" }
+    ]
+  }
+}
