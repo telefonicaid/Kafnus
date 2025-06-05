@@ -8,7 +8,7 @@
       "entityId": "STOP-001",
       "entityType": "Stop",
       "attributes": [
-        { "attrName": "timeinstant", "attrValue": "2025-05-16T10:30:00.00Z" },
+        { "attrName": "timeinstant", "attrValue": "2025-05-16T10:30.000Z" },
         { "attrName": "enabled", "attrValue": true },
         { "attrName": "status", "attrValue": "publidada" },
         { 

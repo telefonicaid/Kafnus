@@ -55,10 +55,10 @@ services:
       JMX_PROMETHEUS_PORT: 9100
       JMX_PROMETHEUS_EXPORTER_OPTS: "-javaagent:/usr/share/jmx_exporter/jmx_prometheus_javaagent.jar=9100:/usr/share/jmx_exporter/kafka-connect.yml"
     volumes:
-      - ./plugins:/etc/kafka-connect/plugins
+      - ../plugins:/etc/kafka-connect/plugins
       # Monitoring
-      - ./monitoring/jmx_prometheus_javaagent.jar:/usr/share/jmx_exporter/jmx_prometheus_javaagent.jar
-      - ./monitoring/kafka-connect.yml:/usr/share/jmx_exporter/kafka-connect.yml
+      - ../monitoring/jmx_prometheus_javaagent.jar:/usr/share/jmx_exporter/jmx_prometheus_javaagent.jar
+      - ../monitoring/kafka-connect.yml:/usr/share/jmx_exporter/kafka-connect.yml
     depends_on:
       - kafka
     networks:

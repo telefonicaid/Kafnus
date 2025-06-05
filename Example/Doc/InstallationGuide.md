@@ -80,6 +80,17 @@ Source:
 
 * [MongoDB Kafka Connector](https://www.confluent.io/hub/mongodb/kafka-connect-mongodb)
 
+
+#### 🔹 Download JMX Prometheus Exporter (for Kafka Connect Monitoring)
+
+To enable detailed JVM and Kafka Connect metrics (via Prometheus), you must download the JMX Prometheus Java Agent and a configuration file.
+
+
+```bash
+cd ../monitoring
+wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.20.0/jmx_prometheus_javaagent-0.20.0.jar -O jmx_prometheus_javaagent.jar 
+```
+
 ---
 
 ### 1.4. 🔧 Mount Plugins in Kafka Connect

@@ -8,7 +8,7 @@
     "entityId": "STOP-001",
     "entityType": "Stop",
     "attributes": [
-      { "attrName": "timeinstant", "attrValue": "2025-05-16T07:45:00.00Z" },
+      { "attrName": "timeinstant", "attrValue": "2025-05-16T07:45.000Z" },
       {
         "attrName": "location",
         "attrType": "geo:json",

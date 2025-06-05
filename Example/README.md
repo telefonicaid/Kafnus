@@ -12,22 +12,33 @@ The project files are organized as follows:
 
 ```plaintext
 .
-├── docker-compose.yml           # Core Kafka services (Kafka and Kafka-Connect)
-├── docker-compose.override.yml  # Faust service
-├── Dockerfile                   # To build Faust Stream service
-├── plugins/                     # Custom connectors (JDBC with PostGIS, MongoDB)
+├── docker/                      # Docker files and service configurations
+│   ├── docker-compose.yml
+│   ├── docker-compose.override.yml
+│   └── Dockerfile
+├── src/                         # Source code for the modularized Faust processor
+│   ├── app/
+│   │   ├── agents.py
+│   │   ├── config.py
+│   │   ├── entity_handler.py
+│   │   ├── faust_app.py
+│   │   ├── kafka_utils.py
+│   │   ├── metrics.py
+│   │   ├── types_utils.py
+│   │   └── __init__.py
+│   ├── stream_processor.py      # Main entry point (can be executed directly)
+│   └── requirements.txt
+├── plugins/                     # Custom connectors and libraries
 │   ├── kafka-connect-jdbc-10.7.0/
-│   └── mongodb/
-├── header-router/               # Java source code for custom Single Message Transform (SMT)
+│   ├── mongodb/
+│   └── header-router-1.0.0.jar
+├── header-router/               # Java source code for the custom SMT
+│   └── src/main/java/com/example/HeaderRouter.java
 ├── sinks/                       # Kafka Connect sink configurations
-│   ├── pg-sink-historic.json    # Historical data sink
-│   ├── pg-sink-lastdata.json    # Last data sink
-│   ├── pg-sink-mutable.json     # Mutable data sink
-│   └── pg-sink-errors.json       # Error handling sink
-├── stream_processor.py          # Faust agents for all data flows
-├── tests/                       # Test cases and validation scripts
-│   ├── postgis/                 # PostGIS test scenarios
-└── └── mongo/                   # MongoDB test scenarios
+├── tests/                       # Test scripts and sample notifications
+├── monitoring/                  # Prometheus/Grafana dashboards and config
+├── Doc/                         # Documentation and images
+└── README.md
 ```
 
 ---
@@ -243,9 +254,10 @@ Example output schema:
 
 ---
 
-## 🧪  How to Run the System
+## 🧪  How to Run the System (with docker)
 
 > Remember that before run it, you will need to get the correct plugins for kafka connector.
+> To execute this commands you must be in docker folder.
 
 1. **Set up PostGIS separately**
 You can use a container or a local installation.  Note that, for now, you must manually create the required databases, schemas, and tables.

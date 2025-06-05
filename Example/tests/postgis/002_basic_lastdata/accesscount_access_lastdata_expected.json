@@ -116,7 +116,6 @@
     {
       "timeinstant" : "2025-05-02T09:35:00.000Z",
       "refzone" : "ZONA-NPO-101",
-      "refzonesec" : "ZONA-NPO-102",
       "description" : "Acceso ubicado a altura de calle principal",
       "location" : "POINT (0.026029 39.986109)",
       "period" : 60.0,
