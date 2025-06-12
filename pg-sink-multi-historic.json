@@ -1,0 +1,47 @@
+{
+  "name": "multi-jdbc-historical-sink",
+  "config": {
+    "connector.class": "com.telefonica.kafka.connect.jdbc.MultiDbJdbcSinkConnector",
+    "tasks.max": "1",
+    "topics": "alcobendas",
+    "connection.url.template": "jdbc:postgresql://iot-postgis:5432/{db}",
+    "connection.user": "postgres",
+    "connection.password": "postgres",
+
+    "insert.mode": "insert",
+    "pk.mode": "record_value",
+    "pk.fields": "entityid,timeinstant",
+    "table.name.format": "${db}.${topic}",
+
+    "delete.enabled": false,
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": true,
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": true,
+    
+    "transforms": "HeaderRouter,convertTimestamp,convertRecvTime",
+
+    "transforms.HeaderRouter.type": "com.example.HeaderRouter",
+    "transforms.HeaderRouter.header.key": "target_table",
+
+    "transforms.convertTimestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+    "transforms.convertTimestamp.target.type": "Timestamp",
+    "transforms.convertTimestamp.field": "timeinstant",
+    "transforms.convertTimestamp.format": "yyyy-MM-dd'T'HH:mm:ss.SSSX",
+    "transforms.convertRecvTime.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+    "transforms.convertRecvTime.target.type": "Timestamp",
+    "transforms.convertRecvTime.field": "recvtime",
+    "transforms.convertRecvTime.format": "yyyy-MM-dd'T'HH:mm:ss.SSSX",
+
+    "auto.create": false,
+    "auto.evolve": false,
+
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "raw_errors",
+    "errors.deadletterqueue.context.headers.enable": "true",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+    "max.retries": "0",
+    "retry.backoff.ms": "0"
+  }
+}
