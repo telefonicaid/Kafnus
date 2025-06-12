@@ -1,0 +1,13 @@
+{
+  "name": "mosquitto-source-connector",
+  "config": {
+    "connector.class": "com.example.mqtt.MqttSourceConnector",
+    "mqtt.broker": "mosquitto",
+    "mqtt.topic": "kafnus/+/+/+",
+    "kafka.topic": "mqtt_events",
+    "mqtt.username": "user",
+    "mqtt.password": "pass",
+    "tasks.max": "1",
+    "mqtt.qos": "1"
+  }
+}
